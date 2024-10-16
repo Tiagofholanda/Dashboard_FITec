@@ -87,7 +87,7 @@ else:
         # Configurações de meta e projeção
 
         # 1. Input para o usuário definir uma meta
-        meta_pontos = st.number_input("Defina a meta de pontos a ser atingida:", min_value=0, value=1000)
+        meta_pontos = st.number_input("Defina a meta de pontos a ser atingida:", min_value=0, value=101457)
 
         # 2. Cálculo da média de pontos diários
         media_diaria = data_df['número de pontos'].mean()
