@@ -6,6 +6,7 @@ import plotly.express as px
 st.set_page_config(
     page_title='Dashboard FITec',
     page_icon=':bar_chart:',  # Ícone de gráfico
+    layout='wide'  # Ativando o modo wide (tela ampla)
 )
 
 # Adicionar o logo da FITec usando SVG via HTML
