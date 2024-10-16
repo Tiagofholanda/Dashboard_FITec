@@ -12,7 +12,7 @@ st.set_page_config(
 # Função para verificar login
 def login(username, password):
     # Dicionário de usuários e senhas
-    users = {"Rodrigo": "FITEC321", "Eduardo": "FITEC321"}  # Adicione mais usuários conforme necessário
+    users = {"Projeto": "FITEC_MA", "Eduardo": "FITEC321"}  # Adicione mais usuários conforme necessário
     if username in users and users[username] == password:
         return True
     return False
