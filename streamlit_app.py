@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from datetime import timedelta
 
-# Defina o título e o ícone que aparecerão na aba do navegador.
+# Definir o layout para o modo wide
 st.set_page_config(
     page_title='Dashboard FITec',
     page_icon=':bar_chart:',  # Ícone de gráfico
@@ -11,8 +12,6 @@ st.set_page_config(
 
 # Adicionar o logo da FITec usando SVG via HTML
 logo_url = "https://www.fitec.org.br/ProjetoAgro/logo-header.svg"
-
-# Usando markdown com HTML para exibir a imagem SVG
 st.markdown(
     f"""
     <div style="text-align: center;">
@@ -21,11 +20,11 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 # -------------------------------------------------------------------------
 # Função para verificar login
 def login(username, password):
-    # Dicionário de usuários e senhas
-    users = {"Projeto": "FITEC_MA", "Eduardo": "FITEC321"}  # Adicione mais usuários conforme necessário
+    users = {"Projeto": "FITEC_MA", "user1": "senha_user1"}
     if username in users and users[username] == password:
         return True
     return False
@@ -34,7 +33,7 @@ def login(username, password):
 if 'login_status' not in st.session_state:
     st.session_state['login_status'] = False
 
-# Se o usuário não está logado, exibe a tela de login
+# Tela de login
 if not st.session_state['login_status']:
     st.title("Login no Dashboard FITec")
     username = st.text_input("Nome de usuário")
@@ -48,16 +47,16 @@ if not st.session_state['login_status']:
         else:
             st.error("Nome de usuário ou senha incorretos")
 else:
-    # Se o usuário está logado, exibe o dashboard
+    # Exibe o dashboard após login
     st.title("Dashboard FITec")
 
     # Botão de logout
     if st.button("Logout"):
         st.session_state['login_status'] = False
         st.info("Você saiu do sistema.")
-    
+
     # -------------------------------------------------------------------------
-    # Funções úteis declaradas
+    # Função para carregar os dados CSV
     @st.cache_data
     def get_custom_data():
         """Carregar dados CSV personalizados a partir do link no GitHub."""
@@ -76,113 +75,56 @@ else:
             return pd.DataFrame()  # Retornar DataFrame vazio
         return df
 
-    @st.cache_data
-    def convert_df(df):
-        """Converter DataFrame em CSV para download."""
-        return df.to_csv().encode('utf-8')
+    # Carregar os dados
+    data_df = get_custom_data()
 
-    def apply_filters(df):
-        """Aplicar filtros de data, cidade, número de pontos e imagem."""
-        min_value = df['data'].min().date()
-        max_value = df['data'].max().date()
-        from_date, to_date = st.date_input(
-            'Qual intervalo de datas você deseja ver?',
-            [min_value, max_value],
-            min_value=min_value,
-            max_value=max_value
-        )
-        from_date = pd.to_datetime(from_date)
-        to_date = pd.to_datetime(to_date)
-        df = df[(df['data'] >= from_date) & (df['data'] <= to_date)]
+    if not data_df.empty:
+        # Converter a coluna "data" para formato datetime
+        data_df['data'] = pd.to_datetime(data_df['data'], format='%Y-%m-%d', errors='coerce')
+        data_df = data_df.dropna(subset=['data'])  # Remover linhas com datas inválidas
 
-        top_cities = df['cidade'].value_counts().index[:3]
-        selected_cities = st.multiselect(
-            'Selecione as cidades para visualizar:',
-            df['cidade'].unique(),
-            default=top_cities
-        )
-        df = df[df['cidade'].isin(selected_cities)]
-        
-        if df.empty:
-            st.warning("Nenhum dado encontrado para as cidades selecionadas.")
-            return df
+        # -------------------------------------------------------------------------
+        # Configurações de meta e projeção
 
-        min_points = int(df['número de pontos'].min())
-        max_points = int(df['número de pontos'].max())
-        if min_points < max_points:
-            selected_points_range = st.slider(
-                'Selecione o intervalo de "número de pontos":',
-                min_value=min_points,
-                max_value=max_points,
-                value=(min_points, max_points)
-            )
-            df = df[
-                (df['número de pontos'] >= selected_points_range[0]) & 
-                (df['número de pontos'] <= selected_points_range[1])
-            ]
+        # 1. Input para o usuário definir uma meta
+        meta_pontos = st.number_input("Defina a meta de pontos a ser atingida:", min_value=0, value=1000)
+
+        # 2. Cálculo da média de pontos diários
+        media_diaria = data_df['número de pontos'].mean()
+        st.write(f"Média de pontos diários atual: {media_diaria:.2f}")
+
+        # 3. Calcular o total de pontos já acumulados
+        total_pontos = data_df['número de pontos'].sum()
+        st.write(f"Total de pontos acumulados: {total_pontos}")
+
+        # 4. Quantidade de pontos que faltam para atingir a meta
+        pontos_restantes = meta_pontos - total_pontos
+        st.write(f"Pontos restantes para atingir a meta: {pontos_restantes}")
+
+        # 5. Projeção de quando a meta será atingida
+        if pontos_restantes > 0:
+            dias_necessarios = pontos_restantes / media_diaria
+            data_termino = data_df['data'].max() + timedelta(days=dias_necessarios)
+            st.write(f"Com a média de pontos atual, a meta será atingida em aproximadamente {dias_necessarios:.1f} dias, por volta de {data_termino.strftime('%Y-%m-%d')}")
         else:
-            st.info(f'Todos os valores de "número de pontos" são {min_points}. Nenhum intervalo disponível.')
+            st.success("Parabéns! A meta já foi atingida!")
 
-        if df.empty:
-            st.warning("Nenhum dado encontrado para o intervalo de pontos selecionado.")
-            return df
+        # 6. O usuário pode definir uma quantidade de pontos diários diferente para ver uma nova projeção
+        nova_media_diaria = st.number_input("Insira uma nova média de pontos diários para projeção:", min_value=1, value=int(media_diaria))
 
-        top_images = df['imagem'].value_counts().index[:3]
-        selected_images = st.multiselect(
-            'Quais imagens você gostaria de visualizar?',
-            df['imagem'].unique(),
-            default=top_images
-        )
-        df = df[df['imagem'].isin(selected_images)]
-        
-        if df.empty:
-            st.warning("Nenhum dado encontrado para as imagens selecionadas.")
-        
-        return df
+        if pontos_restantes > 0:
+            novos_dias_necessarios = pontos_restantes / nova_media_diaria
+            nova_data_termino = data_df['data'].max() + timedelta(days=novos_dias_necessarios)
+            st.write(f"Com a nova média de {nova_media_diaria} pontos por dia, a meta será atingida em aproximadamente {novos_dias_necessarios:.1f} dias, por volta de {nova_data_termino.strftime('%Y-%m-%d')}")
+        else:
+            st.success("A meta já foi atingida!")
 
-    def display_metrics(df, from_date, to_date):
-        """Exibir métricas individuais de número de pontos por imagem."""
-        st.header(f'Métricas do Número de pontos em {to_date.strftime("%Y-%m-%d")}', divider='gray')
+        # -------------------------------------------------------------------------
+        # Gráfico interativo usando Plotly
+        st.header('Número de pontos ao longo do tempo')
 
-        cols = st.columns(4)
-
-        for i, image in enumerate(df['imagem'].unique()):
-            col = cols[i % len(cols)]
-
-            with col:
-                first_row = df[df['data'] == from_date]
-                last_row = df[df['data'] == to_date]
-
-                if not first_row.empty and not last_row.empty:
-                    if image in first_row['imagem'].values and image in last_row['imagem'].values:
-                        first_points = first_row[first_row['imagem'] == image]['número de pontos'].iat[0]
-                        last_points = last_row[last_row['imagem'] == image]['número de pontos'].iat[0]
-
-                        if pd.isna(first_points):
-                            growth = 'n/a'
-                            delta_color = 'off'
-                        else:
-                            growth = f'{last_points / first_points:,.2f}x'
-                            delta_color = 'normal'
-
-                        st.metric(
-                            label=f'{image} Número de pontos',
-                            value=f'{last_points:,.0f}',
-                            delta=growth,
-                            delta_color=delta_color
-                        )
-                    else:
-                        st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
-                else:
-                    st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
-
-    def display_chart(df):
-        """Exibir gráfico interativo do número de pontos ao longo do tempo."""
-        st.header('Número de pontos ao longo do tempo', divider='gray')
-
-        df['número de pontos (média móvel)'] = df['número de pontos'].rolling(window=7).mean()
-
-        fig = px.line(df, x='data', y='número de pontos', color='imagem', markers=True,
+        # Gráfico interativo com Plotly
+        fig = px.line(data_df, x='data', y='número de pontos', markers=True,
                       title="Evolução do Número de Pontos ao Longo do Tempo")
         fig.update_layout(
             xaxis_title="Data",
@@ -193,28 +135,32 @@ else:
         
         st.plotly_chart(fig)
 
-    # -------------------------------------------------------------------------
-    # Carregar os dados
-    data_df = get_custom_data()
+        # Exibir métricas individuais
+        st.header(f'Métricas do Número de pontos em {data_df["data"].max().strftime("%Y-%m-%d")}', divider='gray')
 
-    if not data_df.empty:
-        data_df['data'] = pd.to_datetime(data_df['data'], format='%Y-%m-%d', errors='coerce')
-        data_df = data_df.dropna(subset=['data']) 
+        cols = st.columns(4)
 
-        filtered_df = apply_filters(data_df)
+        for i, image in enumerate(data_df['imagem'].unique()):
+            col = cols[i % len(cols)]
+            with col:
+                # Filtrar os dados para a imagem
+                filtro_imagem = data_df[data_df['imagem'] == image]
 
-        if not filtered_df.empty:
-            display_chart(filtered_df)
-            from_date = filtered_df['data'].min()
-            to_date = filtered_df['data'].max()
-            display_metrics(filtered_df, from_date, to_date)
+                # Verificar se há dados para a imagem antes de acessar
+                if not filtro_imagem.empty:
+                    pontos_inicial = filtro_imagem.iloc[0]['número de pontos']
+                    pontos_final = filtro_imagem.iloc[-1]['número de pontos']
 
-            csv = convert_df(filtered_df)
-            st.download_button(
-                label="Baixar dados filtrados",
-                data=csv,
-                file_name='dados_filtrados.csv',
-                mime='text/csv',
-            )
+                    # Calcular o crescimento em pontos
+                    crescimento = (pontos_final / pontos_inicial) if pontos_inicial != 0 else 0
+                    crescimento_texto = f'{crescimento:.2f}x'
+
+                    st.metric(
+                        label=f'{image} Número de pontos',
+                        value=f'{pontos_final:,.0f}',
+                        delta=crescimento_texto
+                    )
+                else:
+                    st.warning(f"Não há dados para a imagem {image}.")
     else:
         st.error("Os dados não puderam ser carregados.")
