@@ -14,7 +14,7 @@ st.set_page_config(
 logo_url = "https://www.fitec.org.br/ProjetoAgro/logo-header.svg"
 st.markdown(
     f"""
-    <div style="text-align: center;">
+    <div style="text-align: center; margin-bottom: 30px;">
         <img src="{logo_url}" alt="Logo FITec" style="width:300px;"/>
     </div>
     """,
@@ -49,6 +49,7 @@ if not st.session_state['login_status']:
 else:
     # Exibe o dashboard após login
     st.title("Dashboard FITec")
+    st.markdown("---")  # Divisor para separação de seções
 
     # Botão de logout
     if st.button("Logout"):
@@ -84,44 +85,55 @@ else:
         data_df = data_df.dropna(subset=['data'])  # Remover linhas com datas inválidas
 
         # -------------------------------------------------------------------------
-        # Configurações de meta e projeção
+        # Seção: Meta e Projeção
 
-        # 1. Input para o usuário definir uma meta
-        meta_pontos = st.number_input("Defina a meta de pontos a ser atingida:", min_value=0, value=101457)
+        # Disposição em colunas para melhor organização
+        col1, col2 = st.columns(2)
 
-        # 2. Cálculo da média de pontos diários
-        media_diaria = data_df['número de pontos'].mean()
-        st.write(f"Média de pontos diários atual: {media_diaria:.2f}")
+        with col1:
+            st.subheader("Configuração de Meta")
+            # Input para o usuário definir uma meta
+            meta_pontos = st.number_input("Defina a meta de pontos a ser atingida:", min_value=0, value=101457)
 
-        # 3. Calcular o total de pontos já acumulados
-        total_pontos = data_df['número de pontos'].sum()
-        st.write(f"Total de pontos acumulados: {total_pontos}")
+        with col2:
+            st.subheader("Métricas de Pontos")
+            # Cálculo da média de pontos diários
+            media_diaria = data_df['número de pontos'].mean()
+            st.write(f"Média de pontos diários atual: {media_diaria:.2f}")
 
-        # 4. Quantidade de pontos que faltam para atingir a meta
-        pontos_restantes = meta_pontos - total_pontos
-        st.write(f"Pontos restantes para atingir a meta: {pontos_restantes}")
+            # Calcular o total de pontos já acumulados
+            total_pontos = data_df['número de pontos'].sum()
+            st.write(f"Total de pontos acumulados: {total_pontos}")
 
-        # 5. Projeção de quando a meta será atingida
+            # Quantidade de pontos que faltam para atingir a meta
+            pontos_restantes = meta_pontos - total_pontos
+            st.write(f"Pontos restantes para atingir a meta: {pontos_restantes}")
+
+        st.markdown("---")  # Divisor
+
+        # Projeção de quando a meta será atingida
         if pontos_restantes > 0:
             dias_necessarios = pontos_restantes / media_diaria
             data_termino = data_df['data'].max() + timedelta(days=dias_necessarios)
-            st.write(f"Com a média de pontos atual, a meta será atingida em aproximadamente {dias_necessarios:.1f} dias, por volta de {data_termino.strftime('%Y-%m-%d')}")
+            st.success(f"Com a média de pontos atual, a meta será atingida em aproximadamente {dias_necessarios:.1f} dias, por volta de {data_termino.strftime('%Y-%m-%d')}")
         else:
             st.success("Parabéns! A meta já foi atingida!")
 
-        # 6. O usuário pode definir uma quantidade de pontos diários diferente para ver uma nova projeção
+        # O usuário pode definir uma quantidade de pontos diários diferente para ver uma nova projeção
         nova_media_diaria = st.number_input("Insira uma nova média de pontos diários para projeção:", min_value=1, value=int(media_diaria))
 
         if pontos_restantes > 0:
             novos_dias_necessarios = pontos_restantes / nova_media_diaria
             nova_data_termino = data_df['data'].max() + timedelta(days=novos_dias_necessarios)
-            st.write(f"Com a nova média de {nova_media_diaria} pontos por dia, a meta será atingida em aproximadamente {novos_dias_necessarios:.1f} dias, por volta de {nova_data_termino.strftime('%Y-%m-%d')}")
+            st.info(f"Com a nova média de {nova_media_diaria} pontos por dia, a meta será atingida em aproximadamente {novos_dias_necessarios:.1f} dias, por volta de {nova_data_termino.strftime('%Y-%m-%d')}")
         else:
             st.success("A meta já foi atingida!")
 
         # -------------------------------------------------------------------------
-        # Gráfico interativo usando Plotly
-        st.header('Número de pontos ao longo do tempo')
+        # Seção: Gráfico Interativo
+
+        st.markdown("---")
+        st.subheader("Número de pontos ao longo do tempo")
 
         # Gráfico interativo com Plotly
         fig = px.line(data_df, x='data', y='número de pontos', markers=True,
@@ -132,12 +144,14 @@ else:
             legend_title="Imagem",
             hovermode="x unified"
         )
-        
         st.plotly_chart(fig)
 
-        # Exibir métricas individuais
-        st.header(f'Métricas do Número de pontos em {data_df["data"].max().strftime("%Y-%m-%d")}', divider='gray')
+        # -------------------------------------------------------------------------
+        # Seção: Métricas Individuais para cada Imagem
+        st.markdown("---")
+        st.subheader(f"Métricas do Número de pontos em {data_df['data'].max().strftime('%Y-%m-%d')}")
 
+        # Disposição das métricas em colunas
         cols = st.columns(4)
 
         for i, image in enumerate(data_df['imagem'].unique()):
