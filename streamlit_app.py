@@ -8,6 +8,18 @@ st.set_page_config(
     page_icon=':bar_chart:',  # Ícone de gráfico
 )
 
+# Adicionar o logo da FITec usando SVG via HTML
+logo_url = "https://www.fitec.org.br/ProjetoAgro/logo-header.svg"
+
+# Usando markdown com HTML para exibir a imagem SVG
+st.markdown(
+    f"""
+    <div style="text-align: center;">
+        <img src="{logo_url}" alt="Logo FITec" style="width:300px;"/>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 # -------------------------------------------------------------------------
 # Função para verificar login
 def login(username, password):
