@@ -99,20 +99,27 @@ for i, image in enumerate(selected_images):
         first_row = filtered_df[filtered_df['data'] == from_date]
         last_row = filtered_df[filtered_df['data'] == to_date]
 
+        # Verificar se há dados para a imagem na data inicial e final antes de tentar acessar os valores
         if not first_row.empty and not last_row.empty:
-            first_points = first_row[first_row['imagem'] == image]['número de pontos'].iat[0]
-            last_points = last_row[last_row['imagem'] == image]['número de pontos'].iat[0]
+            # Verificar se a imagem existe nas duas datas
+            if image in first_row['imagem'].values and image in last_row['imagem'].values:
+                first_points = first_row[first_row['imagem'] == image]['número de pontos'].iat[0]
+                last_points = last_row[last_row['imagem'] == image]['número de pontos'].iat[0]
 
-            if pd.isna(first_points):
-                growth = 'n/a'
-                delta_color = 'off'
+                if pd.isna(first_points):
+                    growth = 'n/a'
+                    delta_color = 'off'
+                else:
+                    growth = f'{last_points / first_points:,.2f}x'
+                    delta_color = 'normal'
+
+                st.metric(
+                    label=f'{image} Número de pontos',
+                    value=f'{last_points:,.0f}',
+                    delta=growth,
+                    delta_color=delta_color
+                )
             else:
-                growth = f'{last_points / first_points:,.2f}x'
-                delta_color = 'normal'
-
-            st.metric(
-                label=f'{image} Número de pontos',
-                value=f'{last_points:,.0f}',
-                delta=growth,
-                delta_color=delta_color
-            )
+                st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
+        else:
+            st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
