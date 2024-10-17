@@ -130,34 +130,88 @@ else:
         
         return df
 
-    def display_metrics(df, from_date, to_date):
-        """Exibir métricas individuais de número de pontos por imagem."""
-        st.header(f'Métricas do Número de pontos em {to_date.strftime("%Y-%m-%d")}', divider='gray')
+    def display_basic_stats(df):
+        """Exibir um resumo estatístico básico dos dados filtrados."""
+        st.header("Estatísticas Básicas")
+        st.write("Aqui estão algumas estatísticas descritivas dos dados filtrados:")
 
-        cols = st.columns(4)
-        for i, image in enumerate(df['imagem'].unique()):
-            col = cols[i % len(cols)]
-            with col:
-                first_row = df[df['data'] == from_date]
-                last_row = df[df['data'] == to_date]
+        total_registros = len(df)
+        media_pontos = df['número de pontos'].mean()
+        mediana_pontos = df['número de pontos'].median()
+        desvio_padrao = df['número de pontos'].std()
+        max_pontos = df['número de pontos'].max()
+        min_pontos = df['número de pontos'].min()
 
-                if not first_row.empty and not last_row.empty:
-                    if image in first_row['imagem'].values and image in last_row['imagem'].values:
-                        first_points = first_row[first_row['imagem'] == image]['número de pontos'].iat[0]
-                        last_points = last_row[last_row['imagem'] == image]['número de pontos'].iat[0]
-                        growth = f'{last_points / first_points:,.2f}x' if first_points != 0 else 'n/a'
-                        delta_color = 'normal'
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total de Registros", total_registros)
+        col2.metric("Média de Pontos", f"{media_pontos:,.2f}")
+        col3.metric("Mediana de Pontos", f"{mediana_pontos:,.2f}")
+        col4.metric("Desvio Padrão", f"{desvio_padrao:,.2f}")
 
-                        st.metric(
-                            label=f'{image} Número de pontos',
-                            value=f'{last_points:,.0f}',
-                            delta=growth,
-                            delta_color=delta_color
-                        )
-                    else:
-                        st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
-                else:
-                    st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
+        st.write(f"Máximo de Pontos: {max_pontos}")
+        st.write(f"Mínimo de Pontos: {min_pontos}")
+
+    def display_growth_rate(df):
+        """Exibir a taxa de crescimento do número de pontos ao longo do tempo."""
+        st.header("Taxa de Crescimento")
+
+        df = df.sort_values(by="data")
+        df['crescimento diário (%)'] = df['número de pontos'].pct_change() * 100
+
+        crescimento_medio = df['crescimento diário (%)'].mean()
+        crescimento_total = (df['número de pontos'].iloc[-1] - df['número de pontos'].iloc[0]) / df['número de pontos'].iloc[0] * 100
+
+        st.write(f"Crescimento total no período: **{crescimento_total:.2f}%**")
+        st.write(f"Crescimento médio diário: **{crescimento_medio:.2f}%**")
+        
+        fig = px.line(df, x='data', y='crescimento diário (%)', title="Crescimento Diário (%)")
+        st.plotly_chart(fig)
+
+    def display_histogram(df):
+        """Exibir um histograma da distribuição de 'número de pontos'."""
+        st.header("Distribuição do Número de Pontos")
+        fig = px.histogram(df, x='número de pontos', nbins=30, title="Distribuição do Número de Pontos")
+        st.plotly_chart(fig)
+
+    def display_correlation(df):
+        """Exibir a correlação entre 'número de pontos' e outras variáveis numéricas."""
+        st.header("Correlação entre Variáveis")
+
+        # Selecionar apenas colunas numéricas para calcular a correlação
+        df_numeric = df.select_dtypes(include=['float64', 'int64'])
+
+        if df_numeric.shape[1] > 1:  # Verificar se há mais de uma coluna numérica
+            corr = df_numeric.corr()
+            st.write(corr)
+            fig = px.imshow(corr, text_auto=True, title="Matriz de Correlação")
+            st.plotly_chart(fig)
+        else:
+            st.info("Não há variáveis numéricas suficientes para calcular a correlação.")
+
+    def detect_outliers(df):
+        """Detectar outliers no número de pontos usando o método IQR."""
+        st.header("Outliers no Número de Pontos")
+
+        q1 = df['número de pontos'].quantile(0.25)
+        q3 = df['número de pontos'].quantile(0.75)
+        iqr = q3 - q1  # Intervalo interquartil
+
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+
+        outliers = df[(df['número de pontos'] < lower_bound) | (df['número de pontos'] > upper_bound)]
+        
+        if not outliers.empty:
+            st.warning(f"Foram encontrados {len(outliers)} outliers.")
+            st.dataframe(outliers)
+        else:
+            st.info("Nenhum outlier detectado.")
+
+    def display_boxplot(df):
+        """Exibir um boxplot para o número de pontos."""
+        st.header("Boxplot do Número de Pontos")
+        fig = px.box(df, x='imagem', y='número de pontos', points="all", title="Boxplot por Imagem")
+        st.plotly_chart(fig)
 
     def display_chart(df):
         """Exibir gráfico interativo do número de pontos ao longo do tempo."""
@@ -190,9 +244,12 @@ else:
         if not filtered_df.empty:
             # Exibir gráfico e métricas
             display_chart(filtered_df)
-            from_date = filtered_df['data'].min()
-            to_date = filtered_df['data'].max()
-            display_metrics(filtered_df, from_date, to_date)
+            display_basic_stats(filtered_df)
+            display_growth_rate(filtered_df)
+            display_histogram(filtered_df)
+            display_correlation(filtered_df)
+            detect_outliers(filtered_df)
+            display_boxplot(filtered_df)
 
             # Baixar CSV
             csv = convert_df(filtered_df)
