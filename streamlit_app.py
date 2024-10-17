@@ -9,6 +9,13 @@ st.set_page_config(
     layout='wide'  # Definir layout como wide
 )
 
+# Usar o link SVG correto da logo da FITec
+logo_url = "https://www.fitec.org.br/ProjetoAgro/logo-header.svg"
+
+# Exibir logotipo na página inicial e na barra lateral
+st.sidebar.image(logo_url, use_column_width=True)
+st.sidebar.title("Dashboard FITec")
+
 # Função para verificar login
 def login(username, password):
     users = {"Projeto": "FITEC_MA", "Eduardo": "FITEC321"}  # Adicione mais usuários conforme necessário
@@ -23,6 +30,7 @@ if 'login_status' not in st.session_state:
 # Se o usuário não está logado, exibe a tela de login
 if not st.session_state['login_status']:
     st.title("Login no Dashboard FITec")
+    st.image(logo_url, use_column_width=True)  # Exibe o logo na página principal
     username = st.text_input("Nome de usuário")
     password = st.text_input("Senha", type="password")
     
@@ -43,6 +51,9 @@ else:
     if st.sidebar.button("🔒 Sair do Sistema"):
         st.session_state['login_status'] = False
         st.sidebar.info("Você saiu do sistema.")
+    
+    # Exibe logotipo na página principal também
+    st.image(logo_url, use_column_width=True)
 
     # Funções úteis declaradas
     @st.cache_data
@@ -213,6 +224,42 @@ else:
         fig = px.box(df, x='imagem', y='número de pontos', points="all", title="Boxplot por Imagem")
         st.plotly_chart(fig)
 
+    def display_metrics(df, from_date, to_date):
+        """Exibir métricas individuais de número de pontos por imagem."""
+        st.header(f'Métricas do Número de pontos em {to_date.strftime("%Y-%m-%d")}', divider='gray')
+
+        cols = st.columns(4)
+
+        for i, image in enumerate(df['imagem'].unique()):
+            col = cols[i % len(cols)]
+
+            with col:
+                first_row = df[df['data'] == from_date]
+                last_row = df[df['data'] == to_date]
+
+                if not first_row.empty and not last_row.empty:
+                    if image in first_row['imagem'].values and image in last_row['imagem'].values:
+                        first_points = first_row[first_row['imagem'] == image]['número de pontos'].iat[0]
+                        last_points = last_row[last_row['imagem'] == image]['número de pontos'].iat[0]
+
+                        if pd.isna(first_points):
+                            growth = 'n/a'
+                            delta_color = 'off'
+                        else:
+                            growth = f'{last_points / first_points:,.2f}x'
+                            delta_color = 'normal'
+
+                        st.metric(
+                            label=f'{image} Número de pontos',
+                            value=f'{last_points:,.0f}',
+                            delta=growth,
+                            delta_color=delta_color
+                        )
+                    else:
+                        st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
+                else:
+                    st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
+
     def display_chart(df):
         """Exibir gráfico interativo do número de pontos ao longo do tempo."""
         st.header('Número de pontos ao longo do tempo :chart_with_upwards_trend:', divider='gray')
@@ -250,6 +297,10 @@ else:
             display_correlation(filtered_df)
             detect_outliers(filtered_df)
             display_boxplot(filtered_df)
+
+            from_date = filtered_df['data'].min()
+            to_date = filtered_df['data'].max()
+            display_metrics(filtered_df, from_date, to_date)
 
             # Baixar CSV
             csv = convert_df(filtered_df)
