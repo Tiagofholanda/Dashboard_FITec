@@ -38,7 +38,7 @@ def navega_por_botoes():
 def exibir_tela_login():
     st.title("Login no Dashboard FITec")
     logo_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/FITec.svg"
-    st.image(logo_url, use_column_width=True)
+    st.image(logo_url, use_column_width=false)
     
     username = st.text_input("Nome de usuário")
     password = st.text_input("Senha", type="password")
