@@ -25,7 +25,7 @@ def navega_por_botoes():
 
     # Adiciona a logo na barra lateral
     logo_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/FITec.svg"
-    st.image(logo_url, use_column_width=True)  # Corrigir 'false' para 'False'
+    st.image(logo_url, use_column_width=False)  # Corrigir 'false' para 'False'
     # Botões de navegação com ícones
     desempenho_btn = st.sidebar.button("📊 Desempenho")
     projecao_btn = st.sidebar.button("📈 Projeção")
@@ -37,7 +37,7 @@ def navega_por_botoes():
 def exibir_tela_login():
     st.title("Login no Dashboard FITec")
     logo_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/FITec.svg"
-    st.image(logo_url, use_column_width=false)
+    st.image(logo_url, use_column_width=False)
     
     username = st.text_input("Nome de usuário")
     password = st.text_input("Senha", type="password")
