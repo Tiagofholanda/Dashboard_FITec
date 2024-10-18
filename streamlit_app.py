@@ -9,8 +9,9 @@ st.set_page_config(
     layout='wide'  # Definir layout como wide
 )
 
-# Usar o link SVG correto da logo da FITec
-logo_url = "https://www.fitec.org.br/ProjetoAgro/logo-header.svg"
+
+# Usar o link direto da logo SVG do repositório GitHub
+logo_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/FITec.svg"
 
 # Exibir logotipo na página inicial e na barra lateral
 st.sidebar.image(logo_url, use_column_width=True)
