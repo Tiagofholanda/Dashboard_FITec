@@ -2,269 +2,83 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
+# Função para carregar os dados do arquivo Excel a partir do GitHub
+@st.cache_data
+def carregar_dados_desempenho():
+    # URL do arquivo Excel no GitHub (substitua pelo URL correto)
+    url_github = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/data/planilha%20de%20controle.xlsx"
+    try:
+        # Carregar o arquivo Excel diretamente da URL do GitHub
+        dados = pd.read_excel(url_github)
+        return dados
+    except Exception as e:
+        st.error(f"Erro ao carregar o arquivo Excel: {e}")
+        return pd.DataFrame()
+
+# Função para exibir a página de Desempenho
 def show_desempenho():
-    # Exibir logotipo na página inicial e na barra lateral
-    logo_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/FITec.svg"
-    st.sidebar.image(logo_url, use_column_width=True)
-    st.sidebar.title("Dashboard FITec")
+    st.title("📊 Desempenho Atual")
+    st.write("Aqui você pode visualizar o desempenho atual em relação à meta de 100.000 pontos.")
 
-    st.sidebar.title("Navegação")
-    st.sidebar.markdown("Use os filtros para personalizar os dados:")
+    # Carregar os dados do arquivo Excel
+    dados = carregar_dados_desempenho()
 
-    # Funções úteis declaradas
-    @st.cache_data
-    def get_custom_data():
-        """Carregar dados CSV personalizados a partir do link no GitHub."""
-        csv_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/data/dados.csv"
-        try:
-            df = pd.read_csv(csv_url, delimiter=',', on_bad_lines='skip')
-        except FileNotFoundError:
-            st.error("O arquivo CSV não foi encontrado. Verifique o URL.")
-            return pd.DataFrame()
-        except pd.errors.ParserError:
-            st.error("Erro ao analisar o arquivo CSV. Verifique a formatação.")
-            return pd.DataFrame()
-        except Exception as e:
-            st.error(f"Ocorreu um erro inesperado: {e}")
-            return pd.DataFrame()
-        return df
+    # Verificar se o arquivo foi carregado corretamente
+    if dados.empty:
+        st.error("Não há dados disponíveis para exibir.")
+        return
 
-    @st.cache_data
-    def convert_df(df):
-        """Converter DataFrame em CSV para download."""
-        return df.to_csv().encode('utf-8')
+    # Verificar se as colunas 'número de pontos' e 'data' estão presentes no Excel
+    if 'número de pontos' not in dados.columns or 'data' not in dados.columns:
+        st.error("As colunas 'número de pontos' ou 'data' não foram encontradas no arquivo Excel.")
+        return
 
-    def apply_filters(df):
-        """Aplicar filtros de data, cidade, número de pontos e imagem."""
-        st.sidebar.markdown("### Filtros de Data")
-        min_value = df['data'].min().date()
-        max_value = df['data'].max().date()
-        from_date, to_date = st.sidebar.date_input(
-            'Intervalo de datas:',
-            [min_value, max_value],
-            min_value=min_value,
-            max_value=max_value
-        )
-        from_date = pd.to_datetime(from_date)
-        to_date = pd.to_datetime(to_date)
-        df = df[(df['data'] >= from_date) & (df['data'] <= to_date)]
+    # Converter a coluna 'número de pontos' para números
+    dados['número de pontos'] = pd.to_numeric(dados['número de pontos'], errors='coerce')
 
-        st.sidebar.markdown("### Filtros de Cidades")
-        top_cities = df['cidade'].value_counts().index[:3]
-        selected_cities = st.sidebar.multiselect(
-            'Selecione as cidades:',
-            df['cidade'].unique(),
-            default=top_cities
-        )
-        df = df[df['cidade'].isin(selected_cities)]
+    # Verificar se há valores nulos na coluna 'número de pontos' e ignorá-los
+    if dados['número de pontos'].isnull().sum() > 0:
+        st.warning(f"Há {dados['número de pontos'].isnull().sum()} valores nulos na coluna 'número de pontos'. Eles serão ignorados.")
+        dados = dados.dropna(subset=['número de pontos'])
 
-        if df.empty:
-            st.warning("Nenhum dado encontrado para as cidades selecionadas.")
-            return df
+    # Calcular os valores de desempenho
+    meta_total = 100000  # Meta definida de 100.000 pontos
+    pontos_acumulados = dados['número de pontos'].sum()  # Soma os pontos da coluna 'número de pontos'
+    pontos_faltantes = meta_total - pontos_acumulados if meta_total > pontos_acumulados else 0  # Quanto falta para atingir a meta
+    progresso = (pontos_acumulados / meta_total) * 100 if meta_total > 0 else 0  # Porcentagem de progresso
 
-        st.sidebar.markdown("### Filtro de Número de Pontos")
-        min_points = int(df['número de pontos'].min())
-        max_points = int(df['número de pontos'].max())
-        if min_points < max_points:
-            selected_points_range = st.sidebar.slider(
-                'Intervalo de "número de pontos":',
-                min_value=min_points,
-                max_value=max_points,
-                value=(min_points, max_points)
-            )
-            df = df[
-                (df['número de pontos'] >= selected_points_range[0]) & 
-                (df['número de pontos'] <= selected_points_range[1])
-            ]
-        else:
-            st.info(f'Todos os valores de "número de pontos" são {min_points}. Nenhum intervalo disponível.')
+    # Exibir os cards de desempenho
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Meta Total", f"{meta_total:,.0f} pontos")
+    
+    with col2:
+        st.metric("Pontos Acumulados", f"{pontos_acumulados:,.0f} pontos")
+    
+    with col3:
+        st.metric("Pontos Faltantes", f"{pontos_faltantes:,.0f} pontos")
+    
+    with col4:
+        st.metric("Progresso", f"{progresso:.2f} %")
 
-        if df.empty:
-            st.warning("Nenhum dado encontrado para o intervalo de pontos selecionado.")
-            return df
+    # Barra de progresso
+    st.progress(int(progresso))
 
-        st.sidebar.markdown("### Filtro de Imagens")
-        top_images = df['imagem'].value_counts().index[:3]
-        selected_images = st.sidebar.multiselect(
-            'Selecione as imagens:',
-            df['imagem'].unique(),
-            default=top_images
-        )
-        df = df[df['imagem'].isin(selected_images)]
-        
-        if df.empty:
-            st.warning("Nenhum dado encontrado para as imagens selecionadas.")
-        
-        return df
+    # Gráfico de desempenho diário (opcional, para visualizar o progresso por dia)
+    st.subheader("Desempenho Diário de Pontos")
+    desempenho_diario = dados.groupby(dados['data'].dt.date)['número de pontos'].sum().reset_index()
+    fig = px.line(desempenho_diario, x='data', y='número de pontos', 
+                  title="Desempenho Diário - Total de Pontos por Dia",
+                  labels={"número de pontos": "Pontos Diários", "data": "Data"},
+                  markers=True)
+    st.plotly_chart(fig)
 
-    def display_basic_stats(df):
-        """Exibir um resumo estatístico básico dos dados filtrados."""
-        st.header("Estatísticas Básicas")
-        st.write("Aqui estão algumas estatísticas descritivas dos dados filtrados:")
-
-        total_registros = len(df)
-        media_pontos = df['número de pontos'].mean()
-        mediana_pontos = df['número de pontos'].median()
-        desvio_padrao = df['número de pontos'].std()
-        max_pontos = df['número de pontos'].max()
-        min_pontos = df['número de pontos'].min()
-
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total de Registros", total_registros)
-        col2.metric("Média de Pontos", f"{media_pontos:,.2f}")
-        col3.metric("Mediana de Pontos", f"{mediana_pontos:,.2f}")
-        col4.metric("Desvio Padrão", f"{desvio_padrao:,.2f}")
-
-        st.write(f"Máximo de Pontos: {max_pontos}")
-        st.write(f"Mínimo de Pontos: {min_pontos}")
-
-    def display_growth_rate(df):
-        """Exibir a taxa de crescimento do número de pontos ao longo do tempo."""
-        st.header("Taxa de Crescimento")
-
-        df = df.sort_values(by="data")
-        df['crescimento diário (%)'] = df['número de pontos'].pct_change() * 100
-
-        crescimento_medio = df['crescimento diário (%)'].mean()
-        crescimento_total = (df['número de pontos'].iloc[-1] - df['número de pontos'].iloc[0]) / df['número de pontos'].iloc[0] * 100
-
-        st.write(f"Crescimento total no período: **{crescimento_total:.2f}%**")
-        st.write(f"Crescimento médio diário: **{crescimento_medio:.2f}%**")
-        
-        fig = px.line(df, x='data', y='crescimento diário (%)', title="Crescimento Diário (%)")
-        st.plotly_chart(fig)
-
-    def display_histogram(df):
-        """Exibir um histograma da distribuição de 'número de pontos'."""
-        st.header("Distribuição do Número de Pontos")
-        fig = px.histogram(df, x='número de pontos', nbins=30, title="Distribuição do Número de Pontos")
-        st.plotly_chart(fig)
-
-    def display_correlation(df):
-        """Exibir a correlação entre 'número de pontos' e outras variáveis numéricas."""
-        st.header("Correlação entre Variáveis")
-
-        # Selecionar apenas colunas numéricas para calcular a correlação
-        df_numeric = df.select_dtypes(include=['float64', 'int64'])
-
-        if df_numeric.shape[1] > 1:  # Verificar se há mais de uma coluna numérica
-            corr = df_numeric.corr()
-            st.write(corr)
-            fig = px.imshow(corr, text_auto=True, title="Matriz de Correlação")
-            st.plotly_chart(fig)
-        else:
-            st.info("Não há variáveis numéricas suficientes para calcular a correlação.")
-
-    def detect_outliers(df):
-        """Detectar outliers no número de pontos usando o método IQR."""
-        st.header("Outliers no Número de Pontos")
-
-        q1 = df['número de pontos'].quantile(0.25)
-        q3 = df['número de pontos'].quantile(0.75)
-        iqr = q3 - q1  # Intervalo interquartil
-
-        lower_bound = q1 - 1.5 * iqr
-        upper_bound = q3 + 1.5 * iqr
-
-        outliers = df[(df['número de pontos'] < lower_bound) | (df['número de pontos'] > upper_bound)]
-        
-        if not outliers.empty:
-            st.warning(f"Foram encontrados {len(outliers)} outliers.")
-            st.dataframe(outliers)
-        else:
-            st.info("Nenhum outlier detectado.")
-
-    def display_boxplot(df):
-        """Exibir um boxplot para o número de pontos."""
-        st.header("Boxplot do Número de Pontos")
-        fig = px.box(df, x='imagem', y='número de pontos', points="all", title="Boxplot por Imagem")
-        st.plotly_chart(fig)
-
-    def display_metrics(df, from_date, to_date):
-        """Exibir métricas individuais de número de pontos por imagem."""
-        st.header(f'Métricas do Número de pontos em {to_date.strftime("%Y-%m-%d")}', divider='gray')
-
-        cols = st.columns(4)
-
-        for i, image in enumerate(df['imagem'].unique()):
-            col = cols[i % len(cols)]
-
-            with col:
-                first_row = df[df['data'] == from_date]
-                last_row = df[df['data'] == to_date]
-
-                if not first_row.empty and not last_row.empty:
-                    if image in first_row['imagem'].values and image in last_row['imagem'].values:
-                        first_points = first_row[first_row['imagem'] == image]['número de pontos'].iat[0]
-                        last_points = last_row[last_row['imagem'] == image]['número de pontos'].iat[0]
-
-                        if pd.isna(first_points):
-                            growth = 'n/a'
-                            delta_color = 'off'
-                        else:
-                            growth = f'{last_points / first_points:,.2f}x'
-                            delta_color = 'normal'
-
-                        st.metric(
-                            label=f'{image} Número de pontos',
-                            value=f'{last_points:,.0f}',
-                            delta=growth,
-                            delta_color=delta_color
-                        )
-                    else:
-                        st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
-                else:
-                    st.warning(f"A imagem {image} não tem dados para as datas selecionadas.")
-
-    def display_chart(df):
-        """Exibir gráfico interativo do número de pontos ao longo do tempo."""
-        st.header('Número de pontos ao longo do tempo :chart_with_upwards_trend:', divider='gray')
-
-        df['número de pontos (média móvel)'] = df['número de pontos'].rolling(window=7).mean()
-
-        fig = px.line(df, x='data', y='número de pontos', color='imagem', markers=True,
-                      title="Evolução do Número de Pontos ao Longo do Tempo")
-        fig.update_layout(
-            xaxis_title="Data",
-            yaxis_title="Número de Pontos",
-            legend_title="Imagem",
-            hovermode="x unified"
-        )
-        
-        st.plotly_chart(fig)
-
-    # Carregar os dados
-    with st.spinner('Carregando dados...'):
-        data_df = get_custom_data()
-
-    if not data_df.empty:
-        data_df['data'] = pd.to_datetime(data_df['data'], format='%Y-%m-%d', errors='coerce')
-        data_df = data_df.dropna(subset=['data'])
-
-        # Aplicar filtros
-        filtered_df = apply_filters(data_df)
-
-        if not filtered_df.empty:
-            # Exibir gráfico e métricas
-            display_chart(filtered_df)
-            display_basic_stats(filtered_df)
-            display_growth_rate(filtered_df)
-            display_histogram(filtered_df)
-            display_correlation(filtered_df)
-            detect_outliers(filtered_df)
-            display_boxplot(filtered_df)
-
-            from_date = filtered_df['data'].min()
-            to_date = filtered_df['data'].max()
-            display_metrics(filtered_df, from_date, to_date)
-
-            # Baixar CSV
-            csv = convert_df(filtered_df)
-            st.download_button(
-                label="📥 Baixar dados filtrados",
-                data=csv,
-                file_name='dados_filtrados.csv',
-                mime='text/csv',
-            )
-    else:
-        st.error("Os dados não puderam ser carregados.")
+    # Botão para download dos dados de desempenho diário
+    csv = desempenho_diario.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Baixar CSV de Desempenho Diário",
+        data=csv,
+        file_name='desempenho_diario.csv',
+        mime='text/csv',
+    )
