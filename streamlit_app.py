@@ -25,7 +25,8 @@ def navega_por_botoes():
 
     # Adiciona a logo na barra lateral
     logo_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/FITec.svg"
-    st.image(logo_url, use_column_width=False)  # Corrigir 'false' para 'False'
+    st.sidebar.image(logo_url, use_column_width=False)
+
     # Botões de navegação com ícones
     desempenho_btn = st.sidebar.button("📊 Desempenho")
     projecao_btn = st.sidebar.button("📈 Projeção")
