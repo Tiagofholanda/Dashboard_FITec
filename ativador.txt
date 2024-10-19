@@ -1,4 +1,11 @@
+#criar
+python -m venv venv
+
+#ativar
 .\venv\Scripts\activate
 
-rodar 
-streamlit run app.py
+instalação de biblitecas
+pip install requirements.txt
+
+#rodar 
+streamlit run streamlit_app.py
