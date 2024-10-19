@@ -67,7 +67,7 @@ def display_simple_estimate(df):
     col2.metric(f"Estimativa de Pontos em {data_futura.strftime('%Y-%m-%d')}", f"{estimativa_pontos:,.0f} pontos")
 
     st.markdown(f"Serão considerados **{num_dias_uteis} dias úteis** entre a data atual e {data_futura.strftime('%Y-%m-%d')}.")
-
+    
 def apply_filters(df):
     """Aplica filtro de data ao DataFrame."""
     st.sidebar.markdown("### Filtros de Data")
@@ -83,7 +83,7 @@ def apply_filters(df):
     
     return df
 
-def display_basic_stats(df, meta=100000):
+def display_basic_stats(df, meta):
     """Exibe um resumo estatístico básico dos dados filtrados, incluindo indicadores de meta."""
     st.header("📈 Estatísticas Básicas")
     st.markdown("---")
@@ -218,7 +218,7 @@ else:
     @st.cache_data
     def get_custom_data():
         """Carregar dados CSV personalizados a partir do link no GitHub."""
-        csv_url = "./data/dados.csv"
+        csv_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/data/dados.csv"
         try:
             df = pd.read_csv(csv_url, delimiter=',', on_bad_lines='skip')
             df = normalize_column_names(df)  # Normalizar os nomes das colunas
@@ -251,8 +251,11 @@ else:
         filtered_df = apply_filters(data_df)
 
         if not filtered_df.empty:
+            # Adicionar campo para o usuário definir a meta de pontos
+            meta = st.sidebar.number_input("Defina a meta de pontos", min_value=0, value=100000, step=500)
+
             # Exibir métricas principais e indicadores da meta
-            display_basic_stats(filtered_df, meta=100000)  # Meta definida como 100.000 pontos
+            display_basic_stats(filtered_df, meta)  # Meta ajustável pelo usuário
             
             # Exibir gráficos principais em abas para organização
             tab1, tab2, tab3 = st.tabs(["Visão Geral", "Análises Complementares", "Projeção de Pontos"])
@@ -264,7 +267,7 @@ else:
                 display_growth_rate_histogram(filtered_df)
             
             with tab3:
-                display_simple_estimate(filtered_df)  # Nova função de estimativa baseada em média
+                display_simple_estimate(filtered_df)  # Função de estimativa baseada em média
 
             # Baixar CSV
             csv = convert_df(filtered_df)
