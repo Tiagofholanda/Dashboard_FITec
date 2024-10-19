@@ -218,7 +218,7 @@ else:
     @st.cache_data
     def get_custom_data():
         """Carregar dados CSV personalizados a partir do link no GitHub."""
-        csv_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/data/dados.csv"
+        csv_url = "./data/dados.csv"
         try:
             df = pd.read_csv(csv_url, delimiter=',', on_bad_lines='skip')
             df = normalize_column_names(df)  # Normalizar os nomes das colunas
