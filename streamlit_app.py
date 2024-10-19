@@ -177,8 +177,8 @@ st.set_page_config(
 # Injetar CSS personalizado
 local_css("styles.css")  # Assegure-se de criar este arquivo com seus estilos
 
-# URL do logotipo
-logo_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/FITec.svg"
+# URL do logotipo 
+logo_url = "FITec.svg"
 
 # Exibir logotipo na barra lateral
 st.sidebar.image(logo_url, use_column_width=True)
