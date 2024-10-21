@@ -27,7 +27,7 @@ def login(username, password):
     """Verifica as credenciais do usuário."""
     users = {
         "projeto": hash_password("FITEC_MA"),
-        "eduardo": hash_password("FITEC321")
+        "Eduardo": hash_password("FITEC@2024")
     }
     hashed_input_password = hash_password(password)
     if username.lower() in users and users[username.lower()] == hashed_input_password:
@@ -231,6 +231,21 @@ else:
         with tab2:
             display_growth_rate_histogram(data_df)
 
+        # Definir o DataFrame filtrado para download (você pode adicionar filtros personalizados)
+        filtered_df = data_df
+
+        # Converter DataFrame para CSV
+        def convert_df(df):
+            return df.to_csv(index=False).encode('utf-8')
+
+        csv = convert_df(filtered_df)
+        st.download_button(
+            label="📥 Baixar dados filtrados",
+            data=csv,
+            file_name='dados_filtrados.csv',
+            mime='text/csv',
+        )
+        
         # Exibir links profissionais no rodapé
         st.markdown("---")
         st.markdown(

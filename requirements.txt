@@ -1,7 +1,7 @@
 streamlit
 pandas
 plotly
-openpyxl
-folium
-unicodedata
-Office365-REST-Python-Client
+numpy
+streamlit-authenticator
+prophet
+holidays
