@@ -5,20 +5,30 @@ h1, h2, h3 {
 }
 
 /* Personalização do layout */
-.stButton>button {
+.stButton > button {
     background-color: #4CAF50;
     color: white;
     border-radius: 5px;
+    padding: 10px 20px; /* Adiciona padding para maior área clicável */
+    font-size: 1em; /* Usa unidade relativa para tamanho de fonte */
+}
+
+.stButton > button:hover {
+    background-color: #45a049; /* Efeito hover para feedback visual */
 }
 
 .stProgress > div > div {
     background-color: #4CAF50;  /* Cor verde na barra de progresso */
+    transition: width 0.3s ease; /* Adiciona transição suave */
 }
 
 /* Margens e espaçamento */
 .container {
-    padding: 10px;
-    margin: 10px;
+    padding: 2%; /* Usa porcentagem para padding */
+    margin: 2%; /* Usa porcentagem para margin */
+    background-color: #fff; /* Fundo branco para o contêiner */
+    border: 1px solid #e0e0e0; /* Borda leve */
+    border-radius: 8px; /* Cantos arredondados */
 }
 
 /* Estilo dos cards */
@@ -27,4 +37,22 @@ h1, h2, h3 {
     border-radius: 8px;
     padding: 15px;
     margin: 10px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Adiciona sombra para destaque */
+}
+
+/* Estilos responsivos */
+@media (max-width: 768px) {
+    h1, h2, h3 {
+        font-size: 1.5em; /* Ajusta o tamanho dos títulos em telas pequenas */
+    }
+    
+    .stMetric {
+        padding: 10px; /* Reduz o padding em dispositivos menores */
+        margin: 5px 0; /* Reduz a margem em dispositivos menores */
+    }
+    
+    .container {
+        padding: 5%; /* Ajusta o padding em telas pequenas */
+        margin: 5%; /* Ajusta a margem em telas pequenas */
+    }
 }
