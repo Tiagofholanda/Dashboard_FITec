@@ -43,11 +43,9 @@ def local_css(file_name):
         st.warning(f"O arquivo {file_name} não foi encontrado.")
 
 def set_text_color():
-    """Define a cor do texto com base no tema atual."""
-    if st.theme == "dark":
-        return "white"
-    else:
-        return "black"
+    """Define a cor do texto para preto ou branco dependendo do tema."""
+    return "black"  # Para o modo claro
+    # Para o modo escuro, poderia retornar "white"
 
 def display_basic_stats(df):
     """Exibe um resumo estatístico básico dos dados filtrados, incluindo indicadores de meta."""
@@ -113,7 +111,6 @@ def display_chart(df):
     st.header('📊 Evolução do Número de Pontos ao Longo do Tempo')
     st.markdown("---")
 
-    # Alterado para remover a coluna 'imagem' e plotar apenas 'numero_de_pontos'
     fig = px.line(df, x='data', y='numero_de_pontos', markers=True, title="Evolução do Número de Pontos", template='plotly_white')
     fig.update_layout(xaxis_title="Data", yaxis_title="Número de Pontos", hovermode="x unified", 
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
