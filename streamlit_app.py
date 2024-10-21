@@ -230,16 +230,22 @@ else:
 
         with tab2:
             display_growth_rate_histogram(data_df)
-            
-         # Baixar CSV
-            csv = convert_df(filtered_df)
-            st.download_button(
-                label="📥 Baixar dados filtrados",
-                data=csv,
-                file_name='dados_filtrados.csv',
-                mime='text/csv',
-            )
-            
+
+        # Definir o DataFrame filtrado para download (você pode adicionar filtros personalizados)
+        filtered_df = data_df
+
+        # Converter DataFrame para CSV
+        def convert_df(df):
+            return df.to_csv(index=False).encode('utf-8')
+
+        csv = convert_df(filtered_df)
+        st.download_button(
+            label="📥 Baixar dados filtrados",
+            data=csv,
+            file_name='dados_filtrados.csv',
+            mime='text/csv',
+        )
+        
         # Exibir links profissionais no rodapé
         st.markdown("---")
         st.markdown(
