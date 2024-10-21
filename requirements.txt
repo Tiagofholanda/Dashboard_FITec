@@ -1,6 +1,7 @@
 streamlit
 pandas
 plotly
-openpyxl
-folium
-unicodedata
+numpy
+streamlit-authenticator
+prophet
+holidays
