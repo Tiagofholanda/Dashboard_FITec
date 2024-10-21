@@ -42,6 +42,13 @@ def local_css(file_name):
     except FileNotFoundError:
         st.warning(f"O arquivo {file_name} não foi encontrado.")
 
+def set_text_color():
+    """Define a cor do texto com base no tema atual."""
+    if st.theme == "dark":
+        return "white"
+    else:
+        return "black"
+
 def display_basic_stats(df):
     """Exibe um resumo estatístico básico dos dados filtrados, incluindo indicadores de meta."""
     st.header("📈 Estatísticas Básicas")
@@ -106,8 +113,10 @@ def display_chart(df):
     st.header('📊 Evolução do Número de Pontos ao Longo do Tempo')
     st.markdown("---")
 
-    fig = px.line(df, x='data', y='numero_de_pontos', color='imagem', markers=True, title="Evolução do Número de Pontos", template='plotly_white')
-    fig.update_layout(xaxis_title="Data", yaxis_title="Número de Pontos", legend_title="Imagem", hovermode="x unified", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+    # Alterado para remover a coluna 'imagem' e plotar apenas 'numero_de_pontos'
+    fig = px.line(df, x='data', y='numero_de_pontos', markers=True, title="Evolução do Número de Pontos", template='plotly_white')
+    fig.update_layout(xaxis_title="Data", yaxis_title="Número de Pontos", hovermode="x unified", 
+                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
     
     st.plotly_chart(fig, use_container_width=True)
 
@@ -126,7 +135,8 @@ def display_growth_rate_histogram(df):
     st.write(f"Crescimento médio diário: **{crescimento_medio:.2f}%**")
     
     fig = px.histogram(df, x='crescimento_diario_percent', nbins=30, title="Distribuição da Taxa de Crescimento (%)", template='plotly_white')
-    fig.update_layout(xaxis_title="Crescimento Diário (%)", yaxis_title="Frequência", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+    fig.update_layout(xaxis_title="Crescimento Diário (%)", yaxis_title="Frequência", 
+                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
     st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------
