@@ -230,7 +230,16 @@ else:
 
         with tab2:
             display_growth_rate_histogram(data_df)
-
+            
+         # Baixar CSV
+            csv = convert_df(filtered_df)
+            st.download_button(
+                label="📥 Baixar dados filtrados",
+                data=csv,
+                file_name='dados_filtrados.csv',
+                mime='text/csv',
+            )
+            
         # Exibir links profissionais no rodapé
         st.markdown("---")
         st.markdown(
