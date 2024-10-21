@@ -27,7 +27,7 @@ def login(username, password):
     """Verifica as credenciais do usuário."""
     users = {
         "projeto": hash_password("FITEC_MA"),
-        "eduardo": hash_password("FITEC321")
+        "Eduardo": hash_password("FITEC@2024")
     }
     hashed_input_password = hash_password(password)
     if username.lower() in users and users[username.lower()] == hashed_input_password:
