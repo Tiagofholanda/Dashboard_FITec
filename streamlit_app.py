@@ -199,6 +199,7 @@ else:
         try:
             df = pd.read_csv(csv_url, delimiter=',', on_bad_lines='skip')
             df = normalize_column_names(df)  # Normalizar os nomes das colunas
+            st.write("Colunas normalizadas:", df.columns)  # Verificar se as colunas foram carregadas corretamente
             return df
         except FileNotFoundError:
             st.error("O arquivo CSV não foi encontrado. Verifique o URL.")
@@ -215,54 +216,57 @@ else:
         data_df = get_custom_data()
 
     if not data_df.empty:
-        # Converter coluna 'data' para datetime e remover linhas com datas inválidas
-        data_df['data'] = pd.to_datetime(data_df['data'], format='%Y-%m-%d', errors='coerce')
-        data_df = data_df.dropna(subset=['data'])
+        # Verificar se a coluna 'data' existe no DataFrame
+        if 'data' in data_df.columns:
+            # Converter coluna 'data' para datetime e remover linhas com datas inválidas
+            data_df['data'] = pd.to_datetime(data_df['data'], format='%Y-%m-%d', errors='coerce')
+            data_df = data_df.dropna(subset=['data'])
 
-        # Exibir métricas principais e indicadores da meta
-        display_basic_stats(data_df)  # Meta fixa de 101.457 pontos
-        
-        # Exibir gráficos principais em abas para organização
-        tab1, tab2 = st.tabs(["Visão Geral", "Análises Complementares"])
+            # Exibir métricas principais e indicadores da meta
+            display_basic_stats(data_df)  # Meta fixa de 101.457 pontos
+            
+            # Exibir gráficos principais em abas para organização
+            tab1, tab2 = st.tabs(["Visão Geral", "Análises Complementares"])
 
-        with tab1:
-            display_chart(data_df)
+            with tab1:
+                display_chart(data_df)
 
-        with tab2:
-            display_growth_rate_histogram(data_df)
+            with tab2:
+                display_growth_rate_histogram(data_df)
 
-        # Definir o DataFrame filtrado para download (você pode adicionar filtros personalizados)
-        filtered_df = data_df
+            # Definir o DataFrame filtrado para download (você pode adicionar filtros personalizados)
+            filtered_df = data_df
 
-        # Converter DataFrame para CSV
-        def convert_df(df):
-            return df.to_csv(index=False).encode('utf-8')
+            # Converter DataFrame para CSV
+            def convert_df(df):
+                return df.to_csv(index=False).encode('utf-8')
 
-        csv = convert_df(filtered_df)
-        st.download_button(
-            label="📥 Baixar dados filtrados",
-            data=csv,
-            file_name='dados_filtrados.csv',
-            mime='text/csv',
-        )
-        
-        # Exibir links profissionais no rodapé
-        st.markdown("---")
-        st.markdown(
-            """
-            <div style="text-align: center; font-size: 14px;">
-            <a href="https://scholar.google.com.br/citations?user=XLu_qAIAAAAJ&hl=pt-BR" target="_blank">Google Acadêmico</a> | 
-            <a href="https://www.linkedin.com/in/tiago-holanda-082928141/" target="_blank">LinkedIn</a> | 
-            <a href="https://github.com/tiagofholanda" target="_blank">GitHub</a> | 
-            <a href="http://lattes.cnpq.br/4969639760120080" target="_blank">Lattes</a> | 
-            <a href="https://www.researchgate.net/profile/Tiago_Holanda" target="_blank">ResearchGate</a> | 
-            <a href="https://publons.com/researcher/3962699/tiago-holanda/" target="_blank">Publons</a> | 
-            <a href="https://orcid.org/0000-0001-6898-5027" target="_blank">ORCID</a> | 
-            <a href="https://www.scopus.com/authid/detail.uri?authorId=57376293300" target="_blank">Scopus</a>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-
+            csv = convert_df(filtered_df)
+            st.download_button(
+                label="📥 Baixar dados filtrados",
+                data=csv,
+                file_name='dados_filtrados.csv',
+                mime='text/csv',
+            )
+            
+            # Exibir links profissionais no rodapé
+            st.markdown("---")
+            st.markdown(
+                """
+                <div style="text-align: center; font-size: 14px;">
+                <a href="https://scholar.google.com.br/citations?user=XLu_qAIAAAAJ&hl=pt-BR" target="_blank">Google Acadêmico</a> | 
+                <a href="https://www.linkedin.com/in/tiago-holanda-082928141/" target="_blank">LinkedIn</a> | 
+                <a href="https://github.com/tiagofholanda" target="_blank">GitHub</a> | 
+                <a href="http://lattes.cnpq.br/4969639760120080" target="_blank">Lattes</a> | 
+                <a href="https://www.researchgate.net/profile/Tiago_Holanda" target="_blank">ResearchGate</a> | 
+                <a href="https://publons.com/researcher/3962699/tiago-holanda/" target="_blank">Publons</a> | 
+                <a href="https://orcid.org/0000-0001-6898-5027" target="_blank">ORCID</a> | 
+                <a href="https://www.scopus.com/authid/detail.uri?authorId=57376293300" target="_blank">Scopus</a>
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+        else:
+            st.error("A coluna 'data' não foi encontrada no arquivo CSV.")
     else:
         st.error("Os dados não puderam ser carregados.")
