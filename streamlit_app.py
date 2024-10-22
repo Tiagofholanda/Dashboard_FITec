@@ -16,7 +16,7 @@ def remove_accents(input_str):
 
 def normalize_column_names(df):
     """Remove acentos e converte os nomes das colunas para minúsculas."""
-    df.columns = [remove_accents(col).lower().replace(' ', '_') for col in df.columns]
+    df.columns = [remove_accents(col).strip().lower().replace(' ', '_') for col in df.columns]
     return df
 
 def hash_password(password):
@@ -29,8 +29,8 @@ def login(username, password):
         "projeto": hash_password("FITEC_MA"),
         "Eduardo": hash_password("FITEC@2024")
     }
-    hashed_input_password = hash_password(password)
-    if username.lower() in users and users[username.lower()] == hashed_input_password:
+    hash_input_password = hash_password(password)
+    if username.lower() in users and users[username.lower()] == hash_input_password:
         return True
     return False
 
@@ -45,7 +45,6 @@ def local_css(file_name):
 def set_text_color():
     """Define a cor do texto para preto ou branco dependendo do tema."""
     return "black"  # Para o modo claro
-    # Para o modo escuro, poderia retornar "white"
 
 def display_basic_stats(df):
     """Exibe um resumo estatístico básico dos dados filtrados, incluindo indicadores de meta."""
@@ -153,7 +152,7 @@ st.set_page_config(
 )
 
 # Injetar CSS personalizado
-local_css("styles.css")  # Assegure-se de criar este arquivo com seus estilos
+local_css("styles.css")  # Certifique-se de criar este arquivo com seus estilos
 
 # URL do logotipo 
 logo_url = "FITec.svg"
@@ -197,9 +196,10 @@ else:
         """Carregar dados CSV personalizados a partir do link no GitHub."""
         csv_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/data/dados.csv"
         try:
-            df = pd.read_csv(csv_url, delimiter=',', on_bad_lines='skip')
+            # Alterei o delimitador para ;
+            df = pd.read_csv(csv_url, delimiter=';', on_bad_lines='skip')
             df = normalize_column_names(df)  # Normalizar os nomes das colunas
-            st.write("Colunas normalizadas:", df.columns)  # Verificar se as colunas foram carregadas corretamente
+            st.write("Colunas carregadas:", df.columns)  # Verificar quais colunas foram carregadas
             return df
         except FileNotFoundError:
             st.error("O arquivo CSV não foi encontrado. Verifique o URL.")
@@ -216,10 +216,11 @@ else:
         data_df = get_custom_data()
 
     if not data_df.empty:
+        st.write("Primeiras linhas dos dados após o carregamento:", data_df.head())  # Debugging
         # Verificar se a coluna 'data' existe no DataFrame
         if 'data' in data_df.columns:
             # Converter coluna 'data' para datetime e remover linhas com datas inválidas
-            data_df['data'] = pd.to_datetime(data_df['data'], format='%Y-%m-%d', errors='coerce')
+            data_df['data'] = pd.to_datetime(data_df['data'], format='%d/%m/%Y', errors='coerce')
             data_df = data_df.dropna(subset=['data'])
 
             # Exibir métricas principais e indicadores da meta
