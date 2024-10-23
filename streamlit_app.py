@@ -87,7 +87,7 @@ def calculate_statistics(df):
 
     # Progresso da meta
     meta = 101457
-    total_pontos = df['numero_de_pontos'].sum()  # Somando todos os pontos sem filtragem para garantir a soma correta
+    total_pontos = df_daily['total_pontos'].sum()
     pontos_restantes = meta - total_pontos if meta > total_pontos else 0
     percentual_atingido = (total_pontos / meta) * 100 if meta > 0 else 0
 
@@ -103,7 +103,7 @@ def calculate_statistics(df):
 # Funções de Exibição de Gráficos e Estatísticas
 # --------------------------
 
-def display_chart(df, key=None):
+def display_chart(df):
     """Exibe gráfico interativo do número de pontos ao longo do tempo, suavizado com uma média móvel de 7 dias."""
     st.header('📊 Evolução do Número de Pontos ao Longo do Tempo (Suavizado)')
     st.markdown("---")
@@ -114,8 +114,18 @@ def display_chart(df, key=None):
     fig.update_layout(xaxis_title="Data", yaxis_title="Número de Pontos Suavizado", hovermode="x unified", 
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
 
-    # Atribua um `key` único ao gráfico
-    st.plotly_chart(fig, use_container_width=True, key=key)
+    st.plotly_chart(fig, use_container_width=True)
+
+def display_bar_chart(df):
+    """Exibe gráfico de barras comparativo de produção diária de pontos."""
+    st.header("📊 Comparativo de Produção Diária de Pontos")
+    st.markdown("---")
+
+    fig = px.bar(df, x='data', y='total_pontos', title="Produção Diária de Pontos", template="ggplot2", text_auto=True)
+    fig.update_layout(xaxis_title="Data", yaxis_title="Pontos Produzidos", 
+                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
+
+    st.plotly_chart(fig, use_container_width=True)
 
 def display_basic_stats_daily(df_daily):
     """Exibe um resumo estatístico básico dos dados diários, incluindo indicadores de meta."""
@@ -169,6 +179,56 @@ def display_goal_projection(dias_necessarios, data_projecao_termino):
     st.subheader(f"📅 Data Projeção de Término: {data_projecao_termino.strftime('%d/%m/%Y')}")
     st.write(f"**Dias Restantes**: {dias_necessarios:.0f} dias")
 
+def display_projection_chart(df, total_pontos, dias_necessarios):
+    """Exibe um gráfico de linha com a projeção de cumprimento da meta."""
+    st.header("📅 Projeção Gráfica do Cumprimento da Meta")
+    st.markdown("---")
+
+    dias_necessarios = int(dias_necessarios)  # Convertendo para inteiro
+    dias_futuros = pd.date_range(start=datetime.today(), periods=dias_necessarios, freq='D')
+    pontos_futuros = [total_pontos + i*(101457 - total_pontos)/dias_necessarios for i in range(dias_necessarios)]
+
+    df_projecao = pd.DataFrame({'Data': dias_futuros, 'Projeção de Pontos': pontos_futuros})
+
+    fig = px.line(df_projecao, x='Data', y='Projeção de Pontos', title="Projeção de Cumprimento da Meta", 
+                  template="ggplot2", markers=True)
+    fig.update_layout(xaxis_title="Data", yaxis_title="Pontos Acumulados", 
+                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
+
+    st.plotly_chart(fig, use_container_width=True)
+
+def display_kpi(total_pontos, dias_necessarios, media_pontos_diaria):
+    """Exibe um KPI comparando o desempenho atual com o esperado."""
+    st.header("📊 Indicador de Performance")
+    st.markdown("---")
+
+    dias_restantes = dias_necessarios if dias_necessarios > 0 else 0
+    media_esperada = (101457 - total_pontos) / dias_restantes if dias_restantes > 0 else 0
+    
+    col1, col2 = st.columns(2)
+    col1.metric("📈 Média Diária Atual", f"{media_pontos_diaria:,.2f}")
+    col2.metric("📉 Média Diária Esperada", f"{media_esperada:,.2f}", delta=(media_pontos_diaria - media_esperada))
+
+    if media_pontos_diaria < media_esperada:
+        st.warning("A produção está abaixo da média esperada para atingir a meta.")
+    else:
+        st.success("A produção está dentro ou acima da média esperada.")
+
+def display_badges(total_pontos, media_pontos_diaria, media_esperada):
+    """Exibe indicadores visuais (badges) sobre o status da produção."""
+    st.header("🎖️ Status da Produção")
+    st.markdown("---")
+
+    if total_pontos >= 101457:
+        st.success("🎖️ Meta Atingida! Parabéns!")
+    else:
+        st.warning("🚧 Em Progresso: A produção ainda está em andamento.")
+
+    if media_pontos_diaria >= media_esperada:
+        st.info("📈 Produção Constante")
+    else:
+        st.error("📉 Oscilações na Produção")
+
 # --------------------------
 # Configuração da Página
 # --------------------------
@@ -180,8 +240,7 @@ st.set_page_config(
     initial_sidebar_state='expanded',
     menu_items={
         'Get Help': 'https://www.example.com/help',
-        'Report a bug': 'https://www.example
-.com/bug',
+        'Report a bug': 'https://www.example.com/bug',
         'About': 'Dashboard FITec v1.0'
     }
 )
@@ -229,80 +288,73 @@ else:
         data_df = get_custom_data()
 
     if not data_df.empty:
-        # Filtros na Barra Lateral
-        unique_names = data_df['nome'].unique().tolist()
+        unique_names = data_df['nome'].unique()
         selected_names = st.sidebar.multiselect("Selecione Nome(s)", unique_names, default=unique_names)
-        start_date = st.sidebar.date_input('Data Inicial', datetime.today() - timedelta(days=30))
-        end_date = st.sidebar.date_input('Data Final', datetime.today())
 
-        # Filtrar dados pela data e nome
-        filtered_df = data_df[(data_df['data'] >= pd.to_datetime(start_date)) & (data_df['data'] <= pd.to_datetime(end_date))]
-        if selected_names:
-            filtered_df = filtered_df[filtered_df['nome'].isin(selected_names)]  # Filtrar pelos nomes
-
-        # Calcular estatísticas
-        df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino = calculate_statistics(filtered_df)
-
-        # KPIs no topo
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Pontos Totais Unificados", 21703)  # Total de pontos unificados de todos os nomes
-        col2.metric("Progresso da Meta", f"{percentual_atingido:.2f}%")
-        col3.metric("Pontos Restantes", pontos_restantes)
-
-        # Tabs para Visão Geral e Estatísticas por Nome
-        tab1, tab2 = st.tabs(["📊 Visão Geral", "📋 Estatísticas por Nome"])
-
-        # ---- Aba 1: Visão Geral ----
-        with tab1:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                display_meta_progress(total_pontos, pontos_restantes, percentual_atingido)
-                display_basic_stats_daily(df_daily)
-
-            with col2:
-                display_chart(filtered_df, key="chart_visao_geral")
-                display_goal_projection(dias_necessarios, data_projecao_termino)
-
-        # ---- Aba 2: Estatísticas por Nome ----
-        with tab2:
-            for idx, name in enumerate(selected_names):
-                st.subheader(f"Estatísticas de {name}")
-                
-                name_df = filtered_df[filtered_df['nome'] == name]
-                
-                if not name_df.empty:
-                    df_daily_name, total_pontos_name, pontos_restantes_name, percentual_atingido_name, dias_necessarios_name, media_pontos_diaria_name, data_projecao_termino_name = calculate_statistics(name_df)
-                    
-                    col1_name, col2_name = st.columns(2)
-
-                    with col1_name:
-                        display_meta_progress(total_pontos_name, pontos_restantes_name, percentual_atingido_name)
-                        display_basic_stats_daily(df_daily_name)
-
-                    with col2_name:
-                        display_chart(name_df, key=f"chart_{name}_{idx}")
-                        display_goal_projection(dias_necessarios_name, data_projecao_termino_name)
-
-                else:
-                    st.warning(f"⚠️ Não foram encontrados dados para {name}.")
+        filtered_df = data_df[data_df['nome'].isin(selected_names)]
         
-        # Exibir links profissionais no rodapé
-        st.markdown("---")
-        st.markdown(
-            """
-            <div style="text-align: center; font-size: 14px;">
-            <a href="https://scholar.google.com.br/citations?user=XLu_qAIAAAAJ&hl=pt-BR" target="_blank">Google Acadêmico</a> | 
-            <a href="https://www.linkedin.com/in/tiago-holanda-082928141/" target="_blank">LinkedIn</a> | 
-            <a href="https://github.com/tiagofholanda" target="_blank">GitHub</a> | 
-            <a href="http://lattes.cnpq.br/4969639760120080" target="_blank">Lattes</a> | 
-            <a href="https://www.researchgate.net/profile/Tiago-Holanda" target="_blank">ResearchGate</a> | 
-            <a href="https://publons.com/researcher/3962699/tiago-holanda/" target="_blank">Publons</a> | 
-            <a href="https://orcid.org/0000-0001-6898-5027" target="_blank">ORCID</a> | 
-            <a href="https://www.scopus.com/authid/detail.uri?authorId=57376293300" target="_blank">Scopus</a>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
+        if 'data' in filtered_df.columns:
+            df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino = calculate_statistics(filtered_df)
+
+            tab1, tab2 = st.tabs(["📊 Visão Geral", "📋 Estatísticas por Nome"])
+
+            # ---- Aba 1: Visão Geral ----
+            with tab1:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    display_meta_progress(total_pontos, pontos_restantes, percentual_atingido)
+                    display_basic_stats_daily(df_daily)
+
+                with col2:
+                    display_chart(filtered_df)
+                    display_goal_projection(dias_necessarios, data_projecao_termino)
+
+                display_kpi(total_pontos, dias_necessarios, media_pontos_diaria)
+                display_badges(total_pontos, media_pontos_diaria, (101457 - total_pontos) / dias_necessarios)
+
+            # ---- Aba 2: Estatísticas por Nome ----
+            with tab2:
+                for name in selected_names:
+                    st.subheader(f"Estatísticas de {name}")
+                    
+                    name_df = filtered_df[filtered_df['nome'] == name]
+                    
+                    if not name_df.empty:
+                        df_daily_name, total_pontos_name, pontos_restantes_name, percentual_atingido_name, dias_necessarios_name, media_pontos_diaria_name, data_projecao_termino_name = calculate_statistics(name_df)
+                        
+                        col1_name, col2_name = st.columns(2)
+
+                        with col1_name:
+                            display_meta_progress(total_pontos_name, pontos_restantes_name, percentual_atingido_name)
+                            display_basic_stats_daily(df_daily_name)
+
+                        with col2_name:
+                            display_chart(name_df)
+                            display_goal_projection(dias_necessarios_name, data_projecao_termino_name)
+
+                        display_kpi(total_pontos_name, dias_necessarios_name, media_pontos_diaria_name)
+                        display_badges(total_pontos_name, media_pontos_diaria_name, (101457 - total_pontos_name) / dias_necessarios_name)
+
+                    else:
+                        st.warning(f"⚠️ Não foram encontrados dados para {name}.")
+        
+            # Exibir links profissionais no rodapé
+            st.markdown("---")
+            st.markdown(
+                """
+                <div style="text-align: center; font-size: 14px;">
+                <a href="https://scholar.google.com.br/citations?user=XLu_qAIAAAAJ&hl=pt-BR" target="_blank">Google Acadêmico</a> | 
+                <a href="https://www.linkedin.com/in/tiago-holanda-082928141/" target="_blank">LinkedIn</a> | 
+                <a href="https://github.com/tiagofholanda" target="_blank">GitHub</a> | 
+                <a href="http://lattes.cnpq.br/4969639760120080" target="_blank">Lattes</a> | 
+                <a href="https://www.researchgate.net/profile/Tiago-Holanda" target="_blank">ResearchGate</a> | 
+                <a href="https://publons.com/researcher/3962699/tiago-holanda/" target="_blank">Publons</a> | 
+                <a href="https://orcid.org/0000-0001-6898-5027" target="_blank">ORCID</a> | 
+                <a href="https://www.scopus.com/authid/detail.uri?authorId=57376293300" target="_blank">Scopus</a>
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
     else:
         st.error("Os dados não puderam ser carregados.")
