@@ -52,7 +52,7 @@ def set_text_color():
     return "black"
 
 # --------------------------
-# Adicionando cache para otimizar carregamento de dados
+# Função para Carregar Dados
 # --------------------------
 
 @st.cache_data
@@ -62,6 +62,8 @@ def get_custom_data():
     try:
         df = pd.read_csv(csv_url, delimiter=';', on_bad_lines='skip')
         df = normalize_column_names(df)  # Normalizar os nomes das colunas
+        df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y', errors='coerce')
+        df = df.dropna(subset=['data'])  # Remover linhas com data inválida
         return df
     except FileNotFoundError:
         st.error("O arquivo CSV não foi encontrado. Verifique o URL.")
@@ -72,6 +74,30 @@ def get_custom_data():
     except Exception as e:
         st.error(f"Ocorreu um erro inesperado: {e}")
         return pd.DataFrame()
+
+# --------------------------
+# Centralização de Cálculos
+# --------------------------
+
+def calculate_statistics(df):
+    """Calcula estatísticas gerais, diárias e projeção de meta."""
+    # Estatísticas diárias
+    df_daily = df.groupby(df['data'].dt.date).agg({'numero_de_pontos': ['sum', 'mean', 'median', 'std', 'max', 'min']}).reset_index()
+    df_daily.columns = ['data', 'total_pontos', 'media_pontos', 'mediana_pontos', 'desvio_padrao', 'max_pontos', 'min_pontos']
+
+    # Progresso da meta
+    meta = 101457
+    total_pontos = df['numero_de_pontos'].sum()
+    pontos_restantes = meta - total_pontos if meta > total_pontos else 0
+    percentual_atingido = (total_pontos / meta) * 100 if meta > 0 else 0
+
+    # Projeção de término
+    dias_totais = (df['data'].max() - df['data'].min()).days
+    media_pontos_diaria = total_pontos / dias_totais if dias_totais > 0 else 0
+    dias_necessarios = pontos_restantes / media_pontos_diaria if media_pontos_diaria > 0 else float('inf')
+    data_projecao_termino = datetime.today() + timedelta(days=dias_necessarios)
+
+    return df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, data_projecao_termino
 
 # --------------------------
 # Funções de Exibição de Gráficos e Estatísticas
@@ -91,39 +117,36 @@ def display_chart(df):
     
     st.plotly_chart(fig, use_container_width=True)
 
-def display_basic_stats(df):
-    """Exibe um resumo estatístico básico dos dados filtrados, incluindo indicadores de meta."""
-    st.header("📈 Estatísticas Básicas")
+def display_basic_stats_daily(df_daily):
+    """Exibe um resumo estatístico básico dos dados diários, incluindo indicadores de meta."""
+    st.header("📈 Estatísticas Diárias")
     st.markdown("---")
-    st.write("Aqui estão algumas estatísticas descritivas dos dados:")
+    st.write("Aqui estão as estatísticas descritivas dos dados diários:")
 
-    total_registros = len(df)
-    media_pontos = df['numero_de_pontos'].mean()
-    mediana_pontos = df['numero_de_pontos'].median()
-    desvio_padrao = df['numero_de_pontos'].std()
-    max_pontos = df['numero_de_pontos'].max()
-    min_pontos = df['numero_de_pontos'].min()
+    total_registros = len(df_daily)
+    media_pontos = df_daily['media_pontos'].mean()
+    mediana_pontos = df_daily['mediana_pontos'].median()
+    desvio_padrao = df_daily['desvio_padrao'].std()
+    max_pontos = df_daily['max_pontos'].max()
+    min_pontos = df_daily['min_pontos'].min()
 
     # Exibir métricas
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total de Registros", total_registros)
-    col2.metric("Média de Pontos", f"{media_pontos:,.2f}")
-    col3.metric("Desvio Padrão", f"{desvio_padrao:,.2f}")
+    col1.metric("Total de Registros Diários", total_registros)
+    col2.metric("Média Diária de Pontos", f"{media_pontos:,.2f}")
+    col3.metric("Desvio Padrão Diário", f"{desvio_padrao:,.2f}")
 
-    st.write(f"**Mediana de Pontos**: {mediana_pontos:,.2f}")
-    st.write(f"**Máximo de Pontos**: {max_pontos}")
-    st.write(f"**Mínimo de Pontos**: {min_pontos}")
+    st.write(f"**Mediana Diária de Pontos**: {mediana_pontos:,.2f}")
+    st.write(f"**Máximo de Pontos em um Dia**: {max_pontos}")
+    st.write(f"**Mínimo de Pontos em um Dia**: {min_pontos}")
 
     st.markdown("---")
 
-def display_meta_progress(df):
+def display_meta_progress(total_pontos, pontos_restantes, percentual_atingido):
     """Exibe o progresso da meta de pontos."""
     st.header("🎯 Progresso da Meta de Pontos")
     
     meta = 101457
-    total_pontos = df['numero_de_pontos'].sum()
-    pontos_restantes = meta - total_pontos if meta > total_pontos else 0
-    percentual_atingido = (total_pontos / meta) * 100 if meta > 0 else 0
 
     col_meta1, col_meta2, col_meta3 = st.columns(3)
     col_meta1.metric("Meta de Pontos", f"{meta:,.0f}")
@@ -136,94 +159,13 @@ def display_meta_progress(df):
     if pontos_restantes <= 0:
         st.success("🎉 Meta já atingida! A meta foi alcançada com sucesso.")
 
-def display_goal_projection(df):
+def display_goal_projection(dias_necessarios, data_projecao_termino):
     """Calcula e exibe a projeção de quando a meta será atingida."""
     st.markdown("---")
     st.header("📅 Projeção de Quando Vai Terminar")
 
-    # Meta fixa de 101.457 pontos
-    meta = 101457
-    total_pontos = df['numero_de_pontos'].sum()
-    pontos_restantes = meta - total_pontos if meta > total_pontos else 0
-
-    # Cálculo da média de pontos diários para projeção (baseada em todos os dados disponíveis)
-    df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y', errors='coerce')
-    df = df.dropna(subset=['data'])
-    dias_totais = (df['data'].max() - df['data'].min()).days
-    media_pontos_diaria = total_pontos / dias_totais if dias_totais > 0 else 0
-
-    # Mesmo se a média de pontos for baixa, calcular a projeção
-    if media_pontos_diaria > 0:
-        dias_necessarios = pontos_restantes / media_pontos_diaria
-    else:
-        # Caso não haja progresso significativo, usar um valor padrão de um ponto por dia
-        dias_necessarios = pontos_restantes
-
-    # Estimar a data de término
-    data_projecao_termino = datetime.today() + timedelta(days=dias_necessarios)
-
-    # Exibir a data estimada de término, independente da média diária
     st.subheader(f"📅 Data Projeção de Término: {data_projecao_termino.strftime('%d/%m/%Y')}")
     st.write(f"**Dias Restantes**: {dias_necessarios:.0f} dias")
-    st.write(f"**Média Diária de Pontos**: {media_pontos_diaria:.2f} pontos/dia")
-
-def display_projection_per_image(name_df):
-    """Calcula e exibe a projeção de quantos dias serão necessários para atingir 'pontos_por_imagem'."""
-    st.markdown("---")
-    st.header("📅 Projeção de Quando Vai Terminar (Pontos por Imagem)")
-
-    # Exibir valores da coluna 'pontos_por_imagem' e 'imagem' para depuração
-    st.write("Valores de 'imagem' e 'pontos_por_imagem':")
-    st.write(name_df[['imagem', 'pontos_por_imagem']])
-
-    # Verificar valores ausentes ou inválidos na coluna 'pontos_por_imagem'
-    st.write(name_df['pontos_por_imagem'].isnull().sum(), " valores ausentes")
-    st.write(name_df['pontos_por_imagem'].dtype, " tipo de dados")
-
-    # Converter 'pontos_por_imagem' para valores numéricos, substituindo valores não numéricos por NaN
-    # Corrigindo formatação de número
-    name_df['pontos_por_imagem'] = name_df['pontos_por_imagem'].str.replace('.', '', regex=False)  # Remove pontos de milhar
-    name_df['pontos_por_imagem'] = name_df['pontos_por_imagem'].str.replace(',', '.', regex=False)  # Troca vírgula por ponto
-    name_df['pontos_por_imagem'] = pd.to_numeric(name_df['pontos_por_imagem'], errors='coerce')
-
-    # Limpar dados, substituindo NaN por zero
-    name_df['pontos_por_imagem'].fillna(0, inplace=True)  # Ou outra lógica, como usar a média
-
-    # Exibir novamente os dados após a conversão para garantir que foram convertidos corretamente
-    st.write("Dados convertidos de 'pontos_por_imagem':")
-    st.write(name_df[['imagem', 'pontos_por_imagem']])
-
-    # Remover duplicatas de imagem, mantendo a primeira ocorrência
-    unique_df = name_df.drop_duplicates(subset=['imagem'])
-
-    # Filtrar apenas os registros onde há pontos válidos
-    valid_points_df = unique_df[unique_df['pontos_por_imagem'] > 0]
-
-    if valid_points_df.empty:
-        st.warning("⚠ Nenhum dado válido de pontos por imagem encontrado.")
-        return
-
-    # Meta será o valor de 'pontos_por_imagem' para a primeira imagem única
-    meta = valid_points_df['pontos_por_imagem'].iloc[0]
-    
-    st.write(f"Meta baseada na primeira imagem: {meta} pontos")
-
-    # Calcular a média de pontos por imagem
-    media_pontos_por_nome = valid_points_df['pontos_por_imagem'].mean()
-    
-    # Calcular os dias necessários para atingir a meta
-    if media_pontos_por_nome > 0:
-        dias_necessarios = meta / media_pontos_por_nome
-    else:
-        dias_necessarios = float('inf')  # Infinito se a média for zero
-
-    # Estimar a data de término
-    data_projecao_termino = datetime.today() + timedelta(days=dias_necessarios)
-
-    # Exibir a data estimada de término, independente da média diária
-    st.subheader(f"📅 Data Projeção de Término (Pontos por Imagem): {data_projecao_termino.strftime('%d/%m/%Y')}")
-    st.write(f"**Dias Restantes**: {dias_necessarios:.0f} dias")
-    st.write(f"**Média Diária de Pontos por Nome**: {media_pontos_por_nome:.2f} pontos/dia")
 
 # --------------------------
 # Configuração da Página
@@ -295,25 +237,30 @@ else:
         
         # Verificar se a coluna 'data' existe no DataFrame
         if 'data' in filtered_df.columns:
-            filtered_df['data'] = pd.to_datetime(filtered_df['data'], format='%d/%m/%Y', errors='coerce')
-            filtered_df = filtered_df.dropna(subset=['data'])
+            # Centralizar os cálculos de estatísticas
+            df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, data_projecao_termino = calculate_statistics(filtered_df)
 
             # Criação das abas no dashboard
             tab1, tab2 = st.tabs(["📊 Visão Geral", "📋 Estatísticas por Nome"])
 
             # ---- Aba 1: Visão Geral ----
             with tab1:
+                col1, col2 = st.columns(2)
+                
                 # Exibir o Progresso da Meta
-                display_meta_progress(filtered_df)
+                with col1:
+                    display_meta_progress(total_pontos, pontos_restantes, percentual_atingido)
 
-                # Exibir as Estatísticas Básicas
-                display_basic_stats(filtered_df)
+                    # Exibir as Estatísticas Diárias
+                    display_basic_stats_daily(df_daily)
 
-                # Exibir o gráfico de Evolução do Número de Pontos
-                display_chart(filtered_df)
+                # Exibir o gráfico e projeção
+                with col2:
+                    # Exibir o gráfico de Evolução do Número de Pontos
+                    display_chart(filtered_df)
 
-                # Exibir a projeção de quando a meta será atingida
-                display_goal_projection(filtered_df)
+                    # Exibir a projeção de quando a meta será atingida
+                    display_goal_projection(dias_necessarios, data_projecao_termino)
 
             # ---- Aba 2: Estatísticas por Nome ----
             with tab2:
@@ -321,14 +268,17 @@ else:
                     st.subheader(f"Estatísticas de {name}")
                     name_df = filtered_df[filtered_df['nome'] == name]
                     
-                    # Exibir estatísticas individuais para o nome selecionado
-                    display_basic_stats(name_df)
-                    
-                    # Exibir o gráfico de evolução de pontos do nome
-                    display_chart(name_df)
+                    # Organizar informações em colunas
+                    col1, col2 = st.columns(2)
 
-                    # Exibir projeção para pontos por imagem
-                    display_projection_per_image(name_df)
+                    # Exibir estatísticas individuais na coluna 1
+                    with col1:
+                        df_daily_name, *_ = calculate_statistics(name_df)
+                        display_basic_stats_daily(df_daily_name)
+
+                    # Exibir o gráfico de evolução de pontos do nome na coluna 2
+                    with col2:
+                        display_chart(name_df)
 
             # Converter DataFrame para CSV
             def convert_df(df):
