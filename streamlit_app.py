@@ -81,18 +81,18 @@ def get_custom_data():
 
 def calculate_statistics(df):
     """Calcula estatísticas gerais, diárias e projeção de meta."""
-    # Estatísticas diárias
-    df_daily = df.groupby(df['data'].dt.date).agg({'numero_de_pontos': ['sum', 'mean', 'median', 'std', 'max', 'min']}).reset_index()
-    df_daily.columns = ['data', 'total_pontos', 'media_pontos', 'mediana_pontos', 'desvio_padrao', 'max_pontos', 'min_pontos']
+    # Agrupar os dados por data e somar os pontos feitos no mesmo dia
+    df_daily = df.groupby(df['data'].dt.date)['numero_de_pontos'].sum().reset_index()
+    df_daily.columns = ['data', 'total_pontos']
 
     # Progresso da meta
     meta = 101457
-    total_pontos = df['numero_de_pontos'].sum()
+    total_pontos = df_daily['total_pontos'].sum()
     pontos_restantes = meta - total_pontos if meta > total_pontos else 0
     percentual_atingido = (total_pontos / meta) * 100 if meta > 0 else 0
 
     # Projeção de término
-    dias_totais = (df['data'].max() - df['data'].min()).days
+    dias_totais = (df_daily['data'].max() - df_daily['data'].min()).days
     media_pontos_diaria = total_pontos / dias_totais if dias_totais > 0 else 0
     dias_necessarios = pontos_restantes / media_pontos_diaria if media_pontos_diaria > 0 else float('inf')
     data_projecao_termino = datetime.today() + timedelta(days=dias_necessarios)
@@ -111,7 +111,7 @@ def display_chart(df):
     # Suavizar o gráfico usando média móvel (rolling average) de 7 dias fixo
     df['numero_de_pontos_smooth'] = df['numero_de_pontos'].rolling(window=7, min_periods=1).mean()
 
-    fig = px.line(df, x='data', y='numero_de_pontos_smooth', markers=True, title="Evolução do Número de Pontos (Suavização: 7 dias)", template='plotly_white')
+    fig = px.line(df, x='data', y='numero_de_pontos_smooth', markers=True, title="Evolução do Número de Pontos (Suavização: 7 dias)", template='ggplot2')
     fig.update_layout(xaxis_title="Data", yaxis_title="Número de Pontos Suavizado", hovermode="x unified", 
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
     
@@ -124,17 +124,17 @@ def display_basic_stats_daily(df_daily):
     st.write("Aqui estão as estatísticas descritivas dos dados diários:")
 
     total_registros = len(df_daily)
-    media_pontos = df_daily['media_pontos'].mean()
-    mediana_pontos = df_daily['mediana_pontos'].median()
-    desvio_padrao = df_daily['desvio_padrao'].std()
-    max_pontos = df_daily['max_pontos'].max()
-    min_pontos = df_daily['min_pontos'].min()
+    media_pontos = df_daily['total_pontos'].mean()
+    mediana_pontos = df_daily['total_pontos'].median()
+    desvio_padrao = df_daily['total_pontos'].std()
+    max_pontos = df_daily['total_pontos'].max()
+    min_pontos = df_daily['total_pontos'].min()
 
     # Exibir métricas
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total de Registros Diários", total_registros)
-    col2.metric("Média Diária de Pontos", f"{media_pontos:,.2f}")
-    col3.metric("Desvio Padrão Diário", f"{desvio_padrao:,.2f}")
+    col1.metric("📊 Total de Registros Diários", total_registros)
+    col2.metric("📈 Média Diária de Pontos", f"{media_pontos:,.2f}", delta_color="inverse")
+    col3.metric("📉 Desvio Padrão Diário", f"{desvio_padrao:,.2f}")
 
     st.write(f"**Mediana Diária de Pontos**: {mediana_pontos:,.2f}")
     st.write(f"**Máximo de Pontos em um Dia**: {max_pontos}")
@@ -149,15 +149,19 @@ def display_meta_progress(total_pontos, pontos_restantes, percentual_atingido):
     meta = 101457
 
     col_meta1, col_meta2, col_meta3 = st.columns(3)
-    col_meta1.metric("Meta de Pontos", f"{meta:,.0f}")
-    col_meta2.metric("Pontos Realizados", f"{total_pontos:,.0f}")
-    col_meta3.metric("Pontos Restantes", f"{pontos_restantes:,.0f}")
+    col_meta1.metric("🎯 Meta de Pontos", f"{meta:,.0f}")
+    col_meta2.metric("📊 Pontos Realizados", f"{total_pontos:,.0f}")
+    col_meta3.metric("📉 Pontos Restantes", f"{pontos_restantes:,.0f}")
 
-    st.subheader(f"Percentual Atingido: {percentual_atingido:.2f}%")
-    st.progress((percentual_atingido / 100) if percentual_atingido <= 100 else 1.0)
+    st.subheader(f"🎯 Percentual Atingido: {percentual_atingido:.2f}%")
 
-    if pontos_restantes <= 0:
-        st.success("🎉 Meta já atingida! A meta foi alcançada com sucesso.")
+    # Melhorar a barra de progresso
+    if percentual_atingido <= 50:
+        st.progress(percentual_atingido / 100, text="Meta em progresso")
+    elif percentual_atingido <= 100:
+        st.progress(percentual_atingido / 100, text="Quase lá!")
+    else:
+        st.success("🎉 Meta já atingida!")
 
 def display_goal_projection(dias_necessarios, data_projecao_termino):
     """Calcula e exibe a projeção de quando a meta será atingida."""
@@ -279,6 +283,11 @@ else:
                     # Exibir o gráfico de evolução de pontos do nome na coluna 2
                     with col2:
                         display_chart(name_df)
+
+                    # Seção expansível com estatísticas detalhadas
+                    with st.expander(f"Estatísticas Avançadas de {name}"):
+                        st.write(f"Informações detalhadas para {name}")
+                        st.write(name_df.describe())
 
             # Converter DataFrame para CSV
             def convert_df(df):

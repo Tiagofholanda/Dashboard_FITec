@@ -2,6 +2,15 @@
 h1, h2, h3 {
     font-family: 'Arial', sans-serif;
     color: #4CAF50;  /* Verde para os títulos */
+    font-weight: 700;  /* Títulos mais destacados */
+}
+
+/* Personalização do corpo de texto */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #fafafa;  /* Fundo suave */
+    line-height: 1.6; /* Aumenta o espaçamento entre as linhas */
+    color: #333; /* Cor padrão do texto */
 }
 
 /* Personalização do layout */
@@ -11,33 +20,78 @@ h1, h2, h3 {
     border-radius: 5px;
     padding: 10px 20px; /* Adiciona padding para maior área clicável */
     font-size: 1em; /* Usa unidade relativa para tamanho de fonte */
+    transition: background-color 0.3s ease, transform 0.2s ease; /* Transições suaves */
 }
 
 .stButton > button:hover {
     background-color: #45a049; /* Efeito hover para feedback visual */
+    transform: translateY(-2px); /* Move o botão levemente para cima */
 }
 
+.stButton.primary > button {
+    background-color: #ff5722; /* Cor de destaque diferente para o botão primário */
+    color: white;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+.stButton.primary > button:hover {
+    background-color: #e64a19; /* Cor de hover mais intensa */
+    transform: translateY(-2px); /* Move o botão levemente para cima */
+}
+
+/* Foco visível para acessibilidade */
+.stButton > button:focus {
+    outline: 2px solid #4CAF50; /* Adiciona contorno verde quando focado */
+    outline-offset: 2px;
+}
+
+.stMetric:focus {
+    outline: 2px solid #4CAF50;
+    outline-offset: 4px;
+}
+
+/* Personalização da barra de progresso */
 .stProgress > div > div {
     background-color: #4CAF50;  /* Cor verde na barra de progresso */
-    transition: width 0.3s ease; /* Adiciona transição suave */
+    transition: width 0.3s ease; /* Transição suave na mudança de largura */
 }
 
-/* Margens e espaçamento */
-.container {
-    padding: 2%; /* Usa porcentagem para padding */
-    margin: 2%; /* Usa porcentagem para margin */
-    background-color: #fff; /* Fundo branco para o contêiner */
-    border: 1px solid #e0e0e0; /* Borda leve */
-    border-radius: 8px; /* Cantos arredondados */
-}
-
-/* Estilo dos cards */
+/* Personalização de métricas */
 .stMetric {
     background-color: #f1f1f1;
     border-radius: 8px;
     padding: 15px;
-    margin: 10px 0;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Adiciona sombra para destaque */
+    margin: 15px 0; /* Mais espaçamento entre os cards */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra leve */
+    transition: transform 0.2s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
+.stMetric:hover {
+    background-color: #e7e7e7; /* Leve mudança de cor no hover */
+    transform: scale(1.05); /* Aumenta levemente o tamanho no hover */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15); /* Sombra mais intensa no hover */
+}
+
+/* Animações e transições */
+.stMetric {
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stImage {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); /* Sombra leve nas imagens */
+    border-radius: 10px; /* Cantos arredondados */
+    margin-bottom: 15px; /* Espaçamento abaixo da imagem */
+}
+
+/* Margens e espaçamento */
+.container {
+    padding: 20px; /* Mais padding para o container */
+    margin-bottom: 20px; /* Espaçamento abaixo do container */
+    background-color: #fff; /* Fundo branco para o contêiner */
+    border: 1px solid #e0e0e0; /* Borda leve */
+    border-radius: 8px; /* Cantos arredondados */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra suave */
 }
 
 /* Estilos responsivos */
@@ -45,14 +99,30 @@ h1, h2, h3 {
     h1, h2, h3 {
         font-size: 1.5em; /* Ajusta o tamanho dos títulos em telas pequenas */
     }
-    
+
     .stMetric {
         padding: 10px; /* Reduz o padding em dispositivos menores */
         margin: 5px 0; /* Reduz a margem em dispositivos menores */
+        width: 100%; /* Garante que os cards ocupem a largura total em dispositivos pequenos */
     }
-    
+
+    .stButton > button {
+        width: 100%; /* Garante que os botões ocupem a largura total em dispositivos pequenos */
+    }
+
     .container {
-        padding: 5%; /* Ajusta o padding em telas pequenas */
-        margin: 5%; /* Ajusta a margem em telas pequenas */
+        padding: 10px; /* Ajusta o padding para dispositivos móveis */
+        margin: 10px; /* Ajusta a margem para dispositivos móveis */
+    }
+}
+
+/* Melhorias no design responsivo para tablets */
+@media (max-width: 1024px) {
+    body {
+        font-size: 0.9em; /* Reduz levemente o tamanho da fonte em tablets */
+    }
+
+    .container {
+        padding: 3%;
     }
 }
