@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import hashlib
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 
 # --------------------------
@@ -136,39 +136,91 @@ def display_meta_progress(df):
     if pontos_restantes <= 0:
         st.success("🎉 Meta já atingida! A meta foi alcançada com sucesso.")
 
-def display_goal_estimation(df):
-    """Calcula e exibe a data estimada para o cumprimento da meta."""
+def display_goal_projection(df):
+    """Calcula e exibe a projeção de quando a meta será atingida."""
     st.markdown("---")
-    st.header("📅 Estimativa de Cumprimento da Meta")
+    st.header("📅 Projeção de Quando Vai Terminar")
 
     # Meta fixa de 101.457 pontos
     meta = 101457
     total_pontos = df['numero_de_pontos'].sum()
     pontos_restantes = meta - total_pontos if meta > total_pontos else 0
 
-    # Cálculo da média de pontos diários para projeção, com base nos últimos 14 dias
-    recent_df = df.sort_values(by="data").tail(14)  # Últimos 14 dias de dados
-    media_pontos_diaria = recent_df['numero_de_pontos'].mean()
-    ultima_data = df['data'].max()
+    # Cálculo da média de pontos diários para projeção (baseada em todos os dados disponíveis)
+    df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y', errors='coerce')
+    df = df.dropna(subset=['data'])
+    dias_totais = (df['data'].max() - df['data'].min()).days
+    media_pontos_diaria = total_pontos / dias_totais if dias_totais > 0 else 0
 
-    if pontos_restantes > 0 and media_pontos_diaria > 0:
-        # Estimar quantos dias úteis serão necessários
+    # Mesmo se a média de pontos for baixa, calcular a projeção
+    if media_pontos_diaria > 0:
         dias_necessarios = pontos_restantes / media_pontos_diaria
-
-        # Melhorar cálculo de dias úteis, adicionando só dias de trabalho (segunda a sexta)
-        data_estimativa_cumprimento = np.busday_offset(ultima_data.date(), int(dias_necessarios), roll='forward')
-        data_estimativa_cumprimento = pd.to_datetime(data_estimativa_cumprimento)
-
-        # Mostrar mensagem de projeção
-        st.subheader(f"📅 Data Estimada para Cumprimento da Meta: {data_estimativa_cumprimento.strftime('%d/%m/%Y')}")
     else:
-        # Caso a meta tenha sido atingida ou se a média diária de pontos é muito baixa
-        if pontos_restantes <= 0:
-            st.success("🎉 Meta já atingida! A meta foi alcançada com sucesso.")
-        elif media_pontos_diaria == 0:
-            st.warning("⚠ Não houve progresso recente para estimar a data de cumprimento da meta.")
-        else:
-            st.warning("⚠ A média de pontos por dia é muito baixa para estimar um dado realista de cumprimento da meta.")
+        # Caso não haja progresso significativo, usar um valor padrão de um ponto por dia
+        dias_necessarios = pontos_restantes
+
+    # Estimar a data de término
+    data_projecao_termino = datetime.today() + timedelta(days=dias_necessarios)
+
+    # Exibir a data estimada de término, independente da média diária
+    st.subheader(f"📅 Data Projeção de Término: {data_projecao_termino.strftime('%d/%m/%Y')}")
+    st.write(f"**Dias Restantes**: {dias_necessarios:.0f} dias")
+    st.write(f"**Média Diária de Pontos**: {media_pontos_diaria:.2f} pontos/dia")
+
+def display_projection_per_image(name_df):
+    """Calcula e exibe a projeção de quantos dias serão necessários para atingir 'pontos_por_imagem'."""
+    st.markdown("---")
+    st.header("📅 Projeção de Quando Vai Terminar (Pontos por Imagem)")
+
+    # Exibir valores da coluna 'pontos_por_imagem' e 'imagem' para depuração
+    st.write("Valores de 'imagem' e 'pontos_por_imagem':")
+    st.write(name_df[['imagem', 'pontos_por_imagem']])
+
+    # Verificar valores ausentes ou inválidos na coluna 'pontos_por_imagem'
+    st.write(name_df['pontos_por_imagem'].isnull().sum(), " valores ausentes")
+    st.write(name_df['pontos_por_imagem'].dtype, " tipo de dados")
+
+    # Converter 'pontos_por_imagem' para valores numéricos, substituindo valores não numéricos por NaN
+    name_df['pontos_por_imagem'] = pd.to_numeric(name_df['pontos_por_imagem'].str.replace(',', '.'), errors='coerce')
+
+    # Limpar dados, substituindo NaN por zero
+    name_df['pontos_por_imagem'].fillna(0, inplace=True)  # Ou outra lógica, como usar a média
+
+    # Exibir novamente os dados após a conversão para garantir que foram convertidos corretamente
+    st.write("Dados convertidos de 'pontos_por_imagem':")
+    st.write(name_df[['imagem', 'pontos_por_imagem']])
+
+    # Remover duplicatas de imagem, mantendo a primeira ocorrência
+    unique_df = name_df.drop_duplicates(subset=['imagem'])
+
+    # Filtrar apenas os registros onde há pontos válidos
+    valid_points_df = unique_df[unique_df['pontos_por_imagem'] > 0]
+
+    if valid_points_df.empty:
+        st.warning("⚠ Nenhum dado válido de pontos por imagem encontrado.")
+        return
+
+    # Meta será o valor de 'pontos_por_imagem' para a primeira imagem única
+    meta = valid_points_df['pontos_por_imagem'].iloc[0]
+    
+    st.write(f"Meta baseada na primeira imagem: {meta} pontos")
+
+    # Calcular a média de pontos por imagem
+    media_pontos_por_nome = valid_points_df['pontos_por_imagem'].mean()
+    
+    # Calcular os dias necessários para atingir a meta
+    if media_pontos_por_nome > 0:
+        dias_necessarios = meta / media_pontos_por_nome
+    else:
+        dias_necessarios = float('inf')  # Infinito se a média for zero
+
+    # Estimar a data de término
+    data_projecao_termino = datetime.today() + timedelta(days=dias_necessarios)
+
+    # Exibir a data estimada de término, independente da média diária
+    st.subheader(f"📅 Data Projeção de Término (Pontos por Imagem): {data_projecao_termino.strftime('%d/%m/%Y')}")
+    st.write(f"**Dias Restantes**: {dias_necessarios:.0f} dias")
+    st.write(f"**Média Diária de Pontos por Nome**: {media_pontos_por_nome:.2f} pontos/dia")
 
 # --------------------------
 # Configuração da Página
@@ -257,8 +309,8 @@ else:
                 # Exibir o gráfico de Evolução do Número de Pontos
                 display_chart(filtered_df)
 
-                # Exibir a estimativa de cumprimento da meta
-                display_goal_estimation(filtered_df)
+                # Exibir a projeção de quando a meta será atingida
+                display_goal_projection(filtered_df)
 
             # ---- Aba 2: Estatísticas por Nome ----
             with tab2:
@@ -271,6 +323,9 @@ else:
                     
                     # Exibir o gráfico de evolução de pontos do nome
                     display_chart(name_df)
+
+                    # Exibir projeção para pontos por imagem
+                    display_projection_per_image(name_df)
 
             # Converter DataFrame para CSV
             def convert_df(df):
