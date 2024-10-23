@@ -27,8 +27,8 @@ def hash_password(password):
 def login(username, password):
     """Verifica as credenciais do usuário."""
     users = {
-        "projeto": hash_password("FITEC_MA"),  # Hash correto da senha "FITEC_MA"
-        "eduardo": hash_password("FITEC@2024")  # Hash correto da senha "FITEC@2024"
+        "projeto": hash_password("FITEC_MA"),
+        "eduardo": hash_password("FITEC@2024")
     }
     
     # Gerar hash da senha inserida
