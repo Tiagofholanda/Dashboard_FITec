@@ -181,7 +181,10 @@ def display_projection_per_image(name_df):
     st.write(name_df['pontos_por_imagem'].dtype, " tipo de dados")
 
     # Converter 'pontos_por_imagem' para valores numéricos, substituindo valores não numéricos por NaN
-    name_df['pontos_por_imagem'] = pd.to_numeric(name_df['pontos_por_imagem'].str.replace(',', '.'), errors='coerce')
+    # Corrigindo formatação de número
+    name_df['pontos_por_imagem'] = name_df['pontos_por_imagem'].str.replace('.', '', regex=False)  # Remove pontos de milhar
+    name_df['pontos_por_imagem'] = name_df['pontos_por_imagem'].str.replace(',', '.', regex=False)  # Troca vírgula por ponto
+    name_df['pontos_por_imagem'] = pd.to_numeric(name_df['pontos_por_imagem'], errors='coerce')
 
     # Limpar dados, substituindo NaN por zero
     name_df['pontos_por_imagem'].fillna(0, inplace=True)  # Ou outra lógica, como usar a média
@@ -348,7 +351,7 @@ else:
                 <a href="https://www.linkedin.com/in/tiago-holanda-082928141/" target="_blank">LinkedIn</a> | 
                 <a href="https://github.com/tiagofholanda" target="_blank">GitHub</a> | 
                 <a href="http://lattes.cnpq.br/4969639760120080" target="_blank">Lattes</a> | 
-                <a href="https://www.researchgate.net/profile/Tiago_Holanda" target="_blank">ResearchGate</a> | 
+                <a href="https://www.researchgate.net/profile/Tiago-Holanda" target="_blank">ResearchGate</a> | 
                 <a href="https://publons.com/researcher/3962699/tiago-holanda/" target="_blank">Publons</a> | 
                 <a href="https://orcid.org/0000-0001-6898-5027" target="_blank">ORCID</a> | 
                 <a href="https://www.scopus.com/authid/detail.uri?authorId=57376293300" target="_blank">Scopus</a>
