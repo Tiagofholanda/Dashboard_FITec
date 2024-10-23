@@ -27,10 +27,14 @@ def hash_password(password):
 def login(username, password):
     """Verifica as credenciais do usuário."""
     users = {
-        "projeto": hash_password("FITEC_MA"),
-        "Eduardo": hash_password("FITEC@2024")
+        "projeto": hash_password("FITEC_MA"),  # Hash correto da senha "FITEC_MA"
+        "eduardo": hash_password("FITEC@2024")  # Hash correto da senha "FITEC@2024"
     }
+    
+    # Gerar hash da senha inserida
     hash_input_password = hash_password(password)
+    
+    # Verificar se o usuário existe e se a senha corresponde ao hash
     if username.lower() in users and users[username.lower()] == hash_input_password:
         return True
     return False
@@ -45,7 +49,7 @@ def local_css(file_name):
 
 def set_text_color():
     """Define a cor do texto para preto ou branco dependendo do tema."""
-    return "black"  # You can adjust this logic for dark/light themes if needed.
+    return "black"  # Pode ajustar a lógica para temas claro/escuro, se necessário.
 
 # --------------------------
 # Adicionando cache para otimizar carregamento de dados
