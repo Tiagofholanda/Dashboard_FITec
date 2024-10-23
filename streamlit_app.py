@@ -95,7 +95,7 @@ def calculate_statistics(df):
     dias_totais = (df_daily['data'].max() - df_daily['data'].min()).days
     media_pontos_diaria = total_pontos / dias_totais if dias_totais > 0 else 0
     dias_necessarios = pontos_restantes / media_pontos_diaria if media_pontos_diaria > 0 else float('inf')
-    data_projecao_termino = datetime.today() + timedelta(days=dias_necessarios)
+    data_projecao_termino = datetime.today() + timedelta(days=int(dias_necessarios))
 
     return df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino
 
@@ -103,21 +103,21 @@ def calculate_statistics(df):
 # Funções de Exibição de Gráficos e Estatísticas
 # --------------------------
 
-def display_chart(df):
+def display_chart(df, key=None):
     """Exibe gráfico interativo do número de pontos ao longo do tempo, suavizado com uma média móvel de 7 dias."""
     st.header('📊 Evolução do Número de Pontos ao Longo do Tempo (Suavizado)')
     st.markdown("---")
 
-    # Suavizar o gráfico usando média móvel (rolling average) de 7 dias fixo
     df['numero_de_pontos_smooth'] = df['numero_de_pontos'].rolling(window=7, min_periods=1).mean()
 
     fig = px.line(df, x='data', y='numero_de_pontos_smooth', markers=True, title="Evolução do Número de Pontos (Suavização: 7 dias)", template='ggplot2')
     fig.update_layout(xaxis_title="Data", yaxis_title="Número de Pontos Suavizado", hovermode="x unified", 
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
 
-    st.plotly_chart(fig, use_container_width=True)
+    # Atribua um `key` único ao gráfico
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
-def display_bar_chart(df):
+def display_bar_chart(df, key=None):
     """Exibe gráfico de barras comparativo de produção diária de pontos."""
     st.header("📊 Comparativo de Produção Diária de Pontos")
     st.markdown("---")
@@ -126,7 +126,7 @@ def display_bar_chart(df):
     fig.update_layout(xaxis_title="Data", yaxis_title="Pontos Produzidos", 
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
 def display_basic_stats_daily(df_daily):
     """Exibe um resumo estatístico básico dos dados diários, incluindo indicadores de meta."""
@@ -141,7 +141,6 @@ def display_basic_stats_daily(df_daily):
     max_pontos = df_daily['total_pontos'].max()
     min_pontos = df_daily['total_pontos'].min()
 
-    # Exibir métricas
     col1, col2, col3 = st.columns(3)
     col1.metric("📊 Total de Registros Diários", total_registros)
     col2.metric("📈 Média Diária de Pontos", f"{media_pontos:,.2f}", delta_color="inverse")
@@ -166,7 +165,6 @@ def display_meta_progress(total_pontos, pontos_restantes, percentual_atingido):
 
     st.subheader(f"🎯 Percentual Atingido: {percentual_atingido:.2f}%")
 
-    # Melhorar a barra de progresso
     if percentual_atingido <= 50:
         st.progress(percentual_atingido / 100, text="Meta em progresso")
     elif percentual_atingido <= 100:
@@ -187,7 +185,7 @@ def display_projection_chart(df, total_pontos, dias_necessarios):
     st.header("📅 Projeção Gráfica do Cumprimento da Meta")
     st.markdown("---")
 
-    # Projeta o progresso dos pontos ao longo dos dias restantes
+    dias_necessarios = int(dias_necessarios)  # Convertendo para inteiro
     dias_futuros = pd.date_range(start=datetime.today(), periods=dias_necessarios, freq='D')
     pontos_futuros = [total_pontos + i*(101457 - total_pontos)/dias_necessarios for i in range(dias_necessarios)]
 
@@ -205,7 +203,6 @@ def display_kpi(total_pontos, dias_necessarios, media_pontos_diaria):
     st.header("📊 Indicador de Performance")
     st.markdown("---")
 
-    # Meta diária esperada para atingir a meta
     dias_restantes = dias_necessarios if dias_necessarios > 0 else 0
     media_esperada = (101457 - total_pontos) / dias_restantes if dias_restantes > 0 else 0
     
@@ -216,27 +213,9 @@ def display_kpi(total_pontos, dias_necessarios, media_pontos_diaria):
     if media_pontos_diaria < media_esperada:
         st.warning("A produção está abaixo da média esperada para atingir a meta.")
     else:
-        st.success("A produção está dentro ou acima da média esperada para atingir a meta.")
+        st.success("A produção está dentro ou acima da média esperada.")
 
-def display_highlights(df, dias_necessarios):
-    """Exibe destaques como o melhor dia de produção."""
-    st.header("🏅 Destaques de Produção")
-    st.markdown("---")
-
-    # Melhor dia de produção
-    melhor_dia = df.loc[df['total_pontos'].idxmax()]
-
-    st.subheader(f"📅 Melhor Dia de Produção")
-    st.write(f"**Data**: {melhor_dia['data']}, **Pontos Produzidos**: {melhor_dia['total_pontos']}")
-
-    # Alerta sobre metas não atingidas
-    dias_restantes = (datetime(2024, 12, 31) - datetime.today()).days
-    if dias_restantes < dias_necessarios:
-        st.error("⚠️ Alerta: A produção atual está abaixo do ritmo necessário para atingir a meta no prazo.")
-    else:
-        st.success("🎉 Produção está dentro do ritmo esperado para atingir a meta no prazo.")
-
-def display_badges(total_pontos):
+def display_badges(total_pontos, media_pontos_diaria, media_esperada):
     """Exibe indicadores visuais (badges) sobre o status da produção."""
     st.header("🎖️ Status da Produção")
     st.markdown("---")
@@ -246,40 +225,10 @@ def display_badges(total_pontos):
     else:
         st.warning("🚧 Em Progresso: A produção ainda está em andamento.")
 
-    # Indicador de consistência
     if media_pontos_diaria >= media_esperada:
         st.info("📈 Produção Constante")
     else:
         st.error("📉 Oscilações na Produção")
-
-def display_emoticon_feedback(media_pontos_diaria, media_esperada):
-    """Exibe feedback visual com emoticons."""
-    st.header("🤔 Feedback da Produção")
-    st.markdown("---")
-
-    if media_pontos_diaria > media_esperada:
-        st.success("😃 Excelente! A produção está acima da média.")
-    elif media_pontos_diaria == media_esperada:
-        st.info("😐 A produção está dentro da média esperada.")
-    else:
-        st.warning("😢 A produção está abaixo da média esperada.")
-
-def display_insights(df_daily):
-    """Gera e exibe insights automáticos sobre a produção."""
-    st.header("🔍 Análises e Insights")
-    st.markdown("---")
-
-    # Exemplo de insight simples
-    if media_pontos_diaria < media_esperada:
-        st.error("⚠️ Produção abaixo da média esperada. Aumente o ritmo nos próximos dias.")
-    else:
-        st.success("🎉 A produção está dentro do ritmo esperado.")
-
-    # Comparativo semanal ou mensal
-    semana_atual = df_daily['data'].dt.isocalendar().week.max()
-    producao_semanal = df_daily.loc[df_daily['data'].dt.isocalendar().week == semana_atual, 'total_pontos'].sum()
-
-    st.write(f"📅 Produção desta semana: {producao_semanal} pontos.")
 
 # --------------------------
 # Configuração da Página
@@ -334,104 +283,63 @@ else:
     # Dashboard Principal
     # --------------------------
 
-    # Exibe logotipo na página principal também
     st.image(logo_url, width=150, use_column_width=False)
     
-    # Carregar os dados (com cache)
     with st.spinner('Carregando dados...'):
         data_df = get_custom_data()
 
     if not data_df.empty:
-        # ---- Adicionar Filtro por Múltiplos Nomes ----
         unique_names = data_df['nome'].unique()
         selected_names = st.sidebar.multiselect("Selecione Nome(s)", unique_names, default=unique_names)
 
-        # Filtrar os dados pelos nomes selecionados
         filtered_df = data_df[data_df['nome'].isin(selected_names)]
         
-        # Verificar se a coluna 'data' existe no DataFrame
         if 'data' in filtered_df.columns:
-            # Centralizar os cálculos de estatísticas
             df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino = calculate_statistics(filtered_df)
 
-            # Criação das abas no dashboard
             tab1, tab2 = st.tabs(["📊 Visão Geral", "📋 Estatísticas por Nome"])
 
             # ---- Aba 1: Visão Geral ----
             with tab1:
                 col1, col2 = st.columns(2)
                 
-                # Exibir o Progresso da Meta
                 with col1:
                     display_meta_progress(total_pontos, pontos_restantes, percentual_atingido)
-
-                    # Exibir as Estatísticas Diárias
                     display_basic_stats_daily(df_daily)
 
-                # Exibir o gráfico e projeção
                 with col2:
-                    # Exibir o gráfico de Evolução do Número de Pontos
-                    display_chart(filtered_df)
-
-                    # Exibir a projeção de quando a meta será atingida
+                    display_chart(filtered_df, key="chart_visao_geral")
                     display_goal_projection(dias_necessarios, data_projecao_termino)
 
-            # ---- Exibir KPI de Performance ----
-            display_kpi(total_pontos, dias_necessarios, media_pontos_diaria)
-
-            # ---- Exibir Destaques ----
-            display_highlights(df_daily, dias_necessarios)
-
-            # ---- Gráfico Comparativo de Produção Diária ----
-            display_bar_chart(df_daily)
-
-            # ---- Projeção Gráfica do Cumprimento da Meta ----
-            display_projection_chart(df_daily, total_pontos, dias_necessarios)
-
-            # ---- Exibir Badges de Produção ----
-            display_badges(total_pontos)
-
-            # ---- Feedback Visual com Emoticons ----
-            display_emoticon_feedback(media_pontos_diaria, media_esperada)
-
-            # ---- Exibir Análises e Insights ----
-            display_insights(df_daily)
+                display_kpi(total_pontos, dias_necessarios, media_pontos_diaria)
+                display_badges(total_pontos, media_pontos_diaria, (101457 - total_pontos) / dias_necessarios)
 
             # ---- Aba 2: Estatísticas por Nome ----
             with tab2:
-                for name in selected_names:
+                for idx, name in enumerate(selected_names):
                     st.subheader(f"Estatísticas de {name}")
+                    
                     name_df = filtered_df[filtered_df['nome'] == name]
                     
-                    # Organizar informações em colunas
-                    col1, col2 = st.columns(2)
+                    if not name_df.empty:
+                        df_daily_name, total_pontos_name, pontos_restantes_name, percentual_atingido_name, dias_necessarios_name, media_pontos_diaria_name, data_projecao_termino_name = calculate_statistics(name_df)
+                        
+                        col1_name, col2_name = st.columns(2)
 
-                    # Exibir estatísticas individuais na coluna 1
-                    with col1:
-                        df_daily_name, *_ = calculate_statistics(name_df)
-                        display_basic_stats_daily(df_daily_name)
+                        with col1_name:
+                            display_meta_progress(total_pontos_name, pontos_restantes_name, percentual_atingido_name)
+                            display_basic_stats_daily(df_daily_name)
 
-                    # Exibir o gráfico de evolução de pontos do nome na coluna 2
-                    with col2:
-                        display_chart(name_df)
+                        with col2_name:
+                            display_chart(name_df, key=f"chart_{name}_{idx}")
+                            display_goal_projection(dias_necessarios_name, data_projecao_termino_name)
 
-                    # Seção expansível com estatísticas detalhadas
-                    with st.expander(f"Estatísticas Avançadas de {name}"):
-                        st.write(f"Informações detalhadas para {name}")
-                        st.write(name_df.describe())
+                        display_kpi(total_pontos_name, dias_necessarios_name, media_pontos_diaria_name)
+                        display_badges(total_pontos_name, media_pontos_diaria_name, (101457 - total_pontos_name) / dias_necessarios_name)
 
-            # Converter DataFrame para CSV
-            def convert_df(df):
-                return df.to_csv(index=False).encode('utf-8')
-
-            csv = convert_df(filtered_df)
-            st.download_button(
-                label="📥 Baixar dados filtrados",
-                data=csv,
-                file_name='dados_filtrados.csv',
-                mime='text/csv',
-            )
-            
+                    else:
+                        st.warning(f"⚠️ Não foram encontrados dados para {name}.")
+        
             # Exibir links profissionais no rodapé
             st.markdown("---")
             st.markdown(
@@ -449,7 +357,5 @@ else:
                 """, 
                 unsafe_allow_html=True
             )
-        else:
-            st.error("A coluna 'data' não foi encontrada no arquivo CSV.")
     else:
         st.error("Os dados não puderam ser carregados.")
