@@ -5,6 +5,9 @@ import hashlib
 import unicodedata
 from datetime import datetime
 import numpy as np
+import concurrent.futures
+from sklearn.linear_model import LinearRegression
+import requests
 
 # --------------------------
 # Funções Auxiliares
@@ -49,29 +52,34 @@ def local_css(file_name):
 
 def set_text_color():
     """Define a cor do texto para preto ou branco dependendo do tema."""
-    return "black"
+    return "black"  # Pode ajustar a lógica para temas claro/escuro, se necessário.
 
 # --------------------------
 # Adicionando cache para otimizar carregamento de dados
 # --------------------------
 
 @st.cache_data
-def get_custom_data():
-    """Carregar dados CSV personalizados a partir do link no GitHub."""
-    csv_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/data/dados.csv"
-    try:
-        df = pd.read_csv(csv_url, delimiter=';', on_bad_lines='skip')
-        df = normalize_column_names(df)  # Normalizar os nomes das colunas
-        return df
-    except FileNotFoundError:
-        st.error("O arquivo CSV não foi encontrado. Verifique o URL.")
-        return pd.DataFrame()
-    except pd.errors.ParserError:
-        st.error("Erro ao analisar o arquivo CSV. Verifique a formatação.")
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Ocorreu um erro inesperado: {e}")
-        return pd.DataFrame()
+def load_and_clean_data(csv_url):
+    """Carregar e limpar dados CSV, aplicando normalizações."""
+    df = pd.read_csv(csv_url, delimiter=';', on_bad_lines='skip')
+    df = normalize_column_names(df)  # Normalizar os nomes das colunas
+    df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y', errors='coerce')  # Converter a coluna de datas
+    df = df.dropna(subset=['data'])  # Remover linhas com datas inválidas
+    return df
+
+@st.cache_data
+def calculate_basic_stats(df):
+    """Calcula estatísticas básicas com cache."""
+    total_registros = len(df)
+    media_pontos = df['numero_de_pontos'].mean()
+    desvio_padrao = df['numero_de_pontos'].std()
+    max_pontos = df['numero_de_pontos'].max()
+    min_pontos = df['numero_de_pontos'].min()
+    return total_registros, media_pontos, desvio_padrao, max_pontos, min_pontos
+
+def filter_data(df, selected_names):
+    """Aplica o filtro baseado em nomes selecionados."""
+    return df[df['nome'].isin(selected_names)]
 
 # --------------------------
 # Funções de Exibição de Gráficos e Estatísticas
@@ -82,7 +90,6 @@ def display_chart(df):
     st.header('📊 Evolução do Número de Pontos ao Longo do Tempo (Suavizado)')
     st.markdown("---")
 
-    # Suavizar o gráfico usando média móvel (rolling average) de 7 dias fixo
     df['numero_de_pontos_smooth'] = df['numero_de_pontos'].rolling(window=7, min_periods=1).mean()
 
     fig = px.line(df, x='data', y='numero_de_pontos_smooth', markers=True, title="Evolução do Número de Pontos (Suavização: 7 dias)", template='plotly_white')
@@ -95,25 +102,16 @@ def display_basic_stats(df):
     """Exibe um resumo estatístico básico dos dados filtrados, incluindo indicadores de meta."""
     st.header("📈 Estatísticas Básicas")
     st.markdown("---")
-    st.write("Aqui estão algumas estatísticas descritivas dos dados:")
 
-    total_registros = len(df)
-    media_pontos = df['numero_de_pontos'].mean()
-    mediana_pontos = df['numero_de_pontos'].median()
-    desvio_padrao = df['numero_de_pontos'].std()
-    max_pontos = df['numero_de_pontos'].max()
-    min_pontos = df['numero_de_pontos'].min()
+    total_registros, media_pontos, desvio_padrao, max_pontos, min_pontos = calculate_basic_stats(df)
 
-    # Exibir métricas
     col1, col2, col3 = st.columns(3)
     col1.metric("Total de Registros", total_registros)
     col2.metric("Média de Pontos", f"{media_pontos:,.2f}")
     col3.metric("Desvio Padrão", f"{desvio_padrao:,.2f}")
 
-    st.write(f"**Mediana de Pontos**: {mediana_pontos:,.2f}")
     st.write(f"**Máximo de Pontos**: {max_pontos}")
     st.write(f"**Mínimo de Pontos**: {min_pontos}")
-
     st.markdown("---")
 
 def display_meta_progress(df):
@@ -141,28 +139,21 @@ def display_goal_estimation(df):
     st.markdown("---")
     st.header("📅 Estimativa de Cumprimento da Meta")
 
-    # Meta fixa de 101.457 pontos
     meta = 101457
     total_pontos = df['numero_de_pontos'].sum()
     pontos_restantes = meta - total_pontos if meta > total_pontos else 0
 
-    # Cálculo da média de pontos diários para projeção, com base nos últimos 14 dias
     recent_df = df.sort_values(by="data").tail(14)  # Últimos 14 dias de dados
     media_pontos_diaria = recent_df['numero_de_pontos'].mean()
     ultima_data = df['data'].max()
 
     if pontos_restantes > 0 and media_pontos_diaria > 0:
-        # Estimar quantos dias úteis serão necessários
         dias_necessarios = pontos_restantes / media_pontos_diaria
-
-        # Melhorar cálculo de dias úteis, adicionando só dias de trabalho (segunda a sexta)
         data_estimativa_cumprimento = np.busday_offset(ultima_data.date(), int(dias_necessarios), roll='forward')
         data_estimativa_cumprimento = pd.to_datetime(data_estimativa_cumprimento)
 
-        # Mostrar mensagem de projeção
         st.subheader(f"📅 Data Estimada para Cumprimento da Meta: {data_estimativa_cumprimento.strftime('%d/%m/%Y')}")
     else:
-        # Caso a meta tenha sido atingida ou se a média diária de pontos é muito baixa
         if pontos_restantes <= 0:
             st.success("🎉 Meta já atingida! A meta foi alcançada com sucesso.")
         elif media_pontos_diaria == 0:
@@ -170,13 +161,49 @@ def display_goal_estimation(df):
         else:
             st.warning("⚠ A média de pontos por dia é muito baixa para estimar um dado realista de cumprimento da meta.")
 
+def check_goal_status(total_points, meta):
+    """Verifica o status da meta e emite alertas."""
+    if total_points >= meta:
+        st.success("🎉 Meta já atingida! Parabéns!")
+    elif total_points >= 0.9 * meta:  # Alerta quando 90% da meta é alcançada
+        st.warning("⚠️ Você está quase lá! Apenas 10% restantes.")
+
+def calculate_scenarios(df, growth_rate):
+    """Simula diferentes cenários com base em taxa de crescimento ajustável."""
+    daily_avg = df['numero_de_pontos'].mean()
+    projected_points = daily_avg * (1 + growth_rate / 100)
+    return projected_points
+
+def fetch_external_data(api_url):
+    """Consulta uma API externa para obter dados."""
+    response = requests.get(api_url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error("Erro ao consultar a API.")
+        return {}
+
+def predict_points(df):
+    """Previsão simples usando regressão linear."""
+    df['dias'] = (df['data'] - df['data'].min()).dt.days
+    X = df['dias'].values.reshape(-1, 1)
+    y = df['numero_de_pontos'].values
+
+    model = LinearRegression()
+    model.fit(X, y)
+    
+    dias_futuros = np.array([df['dias'].max() + i for i in range(1, 31)]).reshape(-1, 1)
+    pred_pontos = model.predict(dias_futuros)
+    
+    return dias_futuros.flatten(), pred_pontos
+
 # --------------------------
 # Configuração da Página
 # --------------------------
 
 st.set_page_config(
     page_title='Dashboard FITec',
-    page_icon='📊',  # Ícone de gráfico
+    page_icon='📊',
     layout='wide',
     initial_sidebar_state='expanded',
     menu_items={
@@ -228,7 +255,8 @@ else:
     
     # Carregar os dados (com cache)
     with st.spinner('Carregando dados...'):
-        data_df = get_custom_data()
+        csv_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/data/dados.csv"
+        data_df = load_and_clean_data(csv_url)
 
     if not data_df.empty:
         # ---- Adicionar Filtro por Múltiplos Nomes ----
@@ -236,43 +264,40 @@ else:
         selected_names = st.sidebar.multiselect("Selecione Nome(s)", unique_names, default=unique_names)
 
         # Filtrar os dados pelos nomes selecionados
-        filtered_df = data_df[data_df['nome'].isin(selected_names)]
+        filtered_df = filter_data(data_df, selected_names)
         
         # Verificar se a coluna 'data' existe no DataFrame
         if 'data' in filtered_df.columns:
-            filtered_df['data'] = pd.to_datetime(filtered_df['data'], format='%d/%m/%Y', errors='coerce')
-            filtered_df = filtered_df.dropna(subset=['data'])
+            # Converter coluna 'data' para datetime e remover linhas com datas inválidas
+            # (Já feito na função load_and_clean_data)
+            
+            # Exibir o Progresso da Meta primeiro
+            display_meta_progress(filtered_df)
 
-            # Criação das abas no dashboard
-            tab1, tab2 = st.tabs(["📊 Visão Geral", "📋 Estatísticas por Nome"])
+            # Exibir as Estatísticas Básicas em segundo
+            display_basic_stats(filtered_df)
 
-            # ---- Aba 1: Visão Geral ----
-            with tab1:
-                # Exibir o Progresso da Meta
-                display_meta_progress(filtered_df)
+            # Exibir o gráfico de Evolução do Número de Pontos
+            display_chart(filtered_df)
 
-                # Exibir as Estatísticas Básicas
-                display_basic_stats(filtered_df)
+            # Exibir a estimativa de cumprimento da meta no final
+            display_goal_estimation(filtered_df)
 
-                # Exibir o gráfico de Evolução do Número de Pontos
-                display_chart(filtered_df)
+            # Sistema de Notificações/Alertas
+            total_pontos = filtered_df['numero_de_pontos'].sum()
+            meta = 101457
+            check_goal_status(total_pontos, meta)
 
-                # Exibir a estimativa de cumprimento da meta
-                display_goal_estimation(filtered_df)
+            # Simulações de Cenários
+            growth_rate = st.slider('Taxa de Crescimento Diária (%)', min_value=0.0, max_value=10.0, value=2.0)
+            projected_points = calculate_scenarios(filtered_df, growth_rate)
+            st.write(f"Projeção de pontos com {growth_rate}% de crescimento: {projected_points:,.2f}")
 
-            # ---- Aba 2: Estatísticas por Nome ----
-            with tab2:
-                for name in selected_names:
-                    st.subheader(f"Estatísticas de {name}")
-                    name_df = filtered_df[filtered_df['nome'] == name]
-                    
-                    # Exibir estatísticas individuais para o nome selecionado
-                    display_basic_stats(name_df)
-                    
-                    # Exibir o gráfico de evolução de pontos do nome
-                    display_chart(name_df)
+            # Análises Previsionais (Machine Learning)
+            dias_futuros, pred_pontos = predict_points(filtered_df)
+            st.line_chart({"Dias Futuros": dias_futuros, "Previsão de Pontos": pred_pontos})
 
-            # Converter DataFrame para CSV
+            # Conversão do DataFrame para CSV
             def convert_df(df):
                 return df.to_csv(index=False).encode('utf-8')
 
