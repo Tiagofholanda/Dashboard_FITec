@@ -180,7 +180,7 @@ st.set_page_config(
     initial_sidebar_state='expanded',
     menu_items={
         'Get Help': 'https://www.example.com/help',
-        'Report a bug': 'https://www.example.com/bug',
+        'Report a bug': 'https://www.example.com/bug',  # String corretamente fechada
         'About': 'Dashboard FITec v1.0'
     }
 )
