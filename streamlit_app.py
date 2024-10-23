@@ -97,7 +97,7 @@ def calculate_statistics(df):
     dias_necessarios = pontos_restantes / media_pontos_diaria if media_pontos_diaria > 0 else float('inf')
     data_projecao_termino = datetime.today() + timedelta(days=dias_necessarios)
 
-    return df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, data_projecao_termino
+    return df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino
 
 # --------------------------
 # Funções de Exibição de Gráficos e Estatísticas
@@ -114,7 +114,18 @@ def display_chart(df):
     fig = px.line(df, x='data', y='numero_de_pontos_smooth', markers=True, title="Evolução do Número de Pontos (Suavização: 7 dias)", template='ggplot2')
     fig.update_layout(xaxis_title="Data", yaxis_title="Número de Pontos Suavizado", hovermode="x unified", 
                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
-    
+
+    st.plotly_chart(fig, use_container_width=True)
+
+def display_bar_chart(df):
+    """Exibe gráfico de barras comparativo de produção diária de pontos."""
+    st.header("📊 Comparativo de Produção Diária de Pontos")
+    st.markdown("---")
+
+    fig = px.bar(df, x='data', y='total_pontos', title="Produção Diária de Pontos", template="ggplot2", text_auto=True)
+    fig.update_layout(xaxis_title="Data", yaxis_title="Pontos Produzidos", 
+                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
+
     st.plotly_chart(fig, use_container_width=True)
 
 def display_basic_stats_daily(df_daily):
@@ -170,6 +181,105 @@ def display_goal_projection(dias_necessarios, data_projecao_termino):
 
     st.subheader(f"📅 Data Projeção de Término: {data_projecao_termino.strftime('%d/%m/%Y')}")
     st.write(f"**Dias Restantes**: {dias_necessarios:.0f} dias")
+
+def display_projection_chart(df, total_pontos, dias_necessarios):
+    """Exibe um gráfico de linha com a projeção de cumprimento da meta."""
+    st.header("📅 Projeção Gráfica do Cumprimento da Meta")
+    st.markdown("---")
+
+    # Projeta o progresso dos pontos ao longo dos dias restantes
+    dias_futuros = pd.date_range(start=datetime.today(), periods=dias_necessarios, freq='D')
+    pontos_futuros = [total_pontos + i*(101457 - total_pontos)/dias_necessarios for i in range(dias_necessarios)]
+
+    df_projecao = pd.DataFrame({'Data': dias_futuros, 'Projeção de Pontos': pontos_futuros})
+
+    fig = px.line(df_projecao, x='Data', y='Projeção de Pontos', title="Projeção de Cumprimento da Meta", 
+                  template="ggplot2", markers=True)
+    fig.update_layout(xaxis_title="Data", yaxis_title="Pontos Acumulados", 
+                      plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color=set_text_color())
+
+    st.plotly_chart(fig, use_container_width=True)
+
+def display_kpi(total_pontos, dias_necessarios, media_pontos_diaria):
+    """Exibe um KPI comparando o desempenho atual com o esperado."""
+    st.header("📊 Indicador de Performance")
+    st.markdown("---")
+
+    # Meta diária esperada para atingir a meta
+    dias_restantes = dias_necessarios if dias_necessarios > 0 else 0
+    media_esperada = (101457 - total_pontos) / dias_restantes if dias_restantes > 0 else 0
+    
+    col1, col2 = st.columns(2)
+    col1.metric("📈 Média Diária Atual", f"{media_pontos_diaria:,.2f}")
+    col2.metric("📉 Média Diária Esperada", f"{media_esperada:,.2f}", delta=(media_pontos_diaria - media_esperada))
+
+    if media_pontos_diaria < media_esperada:
+        st.warning("A produção está abaixo da média esperada para atingir a meta.")
+    else:
+        st.success("A produção está dentro ou acima da média esperada para atingir a meta.")
+
+def display_highlights(df, dias_necessarios):
+    """Exibe destaques como o melhor dia de produção."""
+    st.header("🏅 Destaques de Produção")
+    st.markdown("---")
+
+    # Melhor dia de produção
+    melhor_dia = df.loc[df['total_pontos'].idxmax()]
+
+    st.subheader(f"📅 Melhor Dia de Produção")
+    st.write(f"**Data**: {melhor_dia['data']}, **Pontos Produzidos**: {melhor_dia['total_pontos']}")
+
+    # Alerta sobre metas não atingidas
+    dias_restantes = (datetime(2024, 12, 31) - datetime.today()).days
+    if dias_restantes < dias_necessarios:
+        st.error("⚠️ Alerta: A produção atual está abaixo do ritmo necessário para atingir a meta no prazo.")
+    else:
+        st.success("🎉 Produção está dentro do ritmo esperado para atingir a meta no prazo.")
+
+def display_badges(total_pontos):
+    """Exibe indicadores visuais (badges) sobre o status da produção."""
+    st.header("🎖️ Status da Produção")
+    st.markdown("---")
+
+    if total_pontos >= 101457:
+        st.success("🎖️ Meta Atingida! Parabéns!")
+    else:
+        st.warning("🚧 Em Progresso: A produção ainda está em andamento.")
+
+    # Indicador de consistência
+    if media_pontos_diaria >= media_esperada:
+        st.info("📈 Produção Constante")
+    else:
+        st.error("📉 Oscilações na Produção")
+
+def display_emoticon_feedback(media_pontos_diaria, media_esperada):
+    """Exibe feedback visual com emoticons."""
+    st.header("🤔 Feedback da Produção")
+    st.markdown("---")
+
+    if media_pontos_diaria > media_esperada:
+        st.success("😃 Excelente! A produção está acima da média.")
+    elif media_pontos_diaria == media_esperada:
+        st.info("😐 A produção está dentro da média esperada.")
+    else:
+        st.warning("😢 A produção está abaixo da média esperada.")
+
+def display_insights(df_daily):
+    """Gera e exibe insights automáticos sobre a produção."""
+    st.header("🔍 Análises e Insights")
+    st.markdown("---")
+
+    # Exemplo de insight simples
+    if media_pontos_diaria < media_esperada:
+        st.error("⚠️ Produção abaixo da média esperada. Aumente o ritmo nos próximos dias.")
+    else:
+        st.success("🎉 A produção está dentro do ritmo esperado.")
+
+    # Comparativo semanal ou mensal
+    semana_atual = df_daily['data'].dt.isocalendar().week.max()
+    producao_semanal = df_daily.loc[df_daily['data'].dt.isocalendar().week == semana_atual, 'total_pontos'].sum()
+
+    st.write(f"📅 Produção desta semana: {producao_semanal} pontos.")
 
 # --------------------------
 # Configuração da Página
@@ -242,7 +352,7 @@ else:
         # Verificar se a coluna 'data' existe no DataFrame
         if 'data' in filtered_df.columns:
             # Centralizar os cálculos de estatísticas
-            df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, data_projecao_termino = calculate_statistics(filtered_df)
+            df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino = calculate_statistics(filtered_df)
 
             # Criação das abas no dashboard
             tab1, tab2 = st.tabs(["📊 Visão Geral", "📋 Estatísticas por Nome"])
@@ -265,6 +375,27 @@ else:
 
                     # Exibir a projeção de quando a meta será atingida
                     display_goal_projection(dias_necessarios, data_projecao_termino)
+
+            # ---- Exibir KPI de Performance ----
+            display_kpi(total_pontos, dias_necessarios, media_pontos_diaria)
+
+            # ---- Exibir Destaques ----
+            display_highlights(df_daily, dias_necessarios)
+
+            # ---- Gráfico Comparativo de Produção Diária ----
+            display_bar_chart(df_daily)
+
+            # ---- Projeção Gráfica do Cumprimento da Meta ----
+            display_projection_chart(df_daily, total_pontos, dias_necessarios)
+
+            # ---- Exibir Badges de Produção ----
+            display_badges(total_pontos)
+
+            # ---- Feedback Visual com Emoticons ----
+            display_emoticon_feedback(media_pontos_diaria, media_esperada)
+
+            # ---- Exibir Análises e Insights ----
+            display_insights(df_daily)
 
             # ---- Aba 2: Estatísticas por Nome ----
             with tab2:
