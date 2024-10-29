@@ -76,7 +76,66 @@ def get_custom_data():
         return pd.DataFrame()
 
 # --------------------------
-# Centralização de Cálculos
+# Função para Calcular Pontos Restantes por Imagem
+# --------------------------
+
+def calculate_statistics_per_image(name_df):
+    """Calcula os Pontos Restantes por imagem e a porcentagem de progresso para o nome selecionado."""
+    
+    # Filtrar dados por imagem e evitar duplicidade ao somar
+    image_df = name_df.drop_duplicates(subset=['imagem'])
+    
+    # Verificar se há imagens disponíveis
+    if image_df.empty:
+        return [], [], image_df
+    
+    # Listas para armazenar informações
+    pontos_restantes_list = []
+    progresso_list = []
+    
+    for _, row in image_df.iterrows():
+        pontos_realizados = row['numero_de_pontos']
+        meta_pontos = row['pontos_por_imagem']
+        
+        # Calcular os pontos restantes e o progresso
+        pontos_restantes = meta_pontos - pontos_realizados if meta_pontos > pontos_realizados else 0
+        progresso = (pontos_realizados / meta_pontos) * 100 if meta_pontos > 0 else 0
+        
+        pontos_restantes_list.append(pontos_restantes)
+        progresso_list.append(progresso)
+    
+    return pontos_restantes_list, progresso_list, image_df
+
+# --------------------------
+# Função de Exibição de Estatísticas por Nome e Imagem
+# --------------------------
+
+def display_name_statistics(name_df):
+    """Exibe KPIs para o nome selecionado, utilizando 'pontos_por_imagem'."""
+    
+    # Calcular Pontos Restantes e Progresso por Imagem
+    pontos_restantes_list, progresso_list, image_df = calculate_statistics_per_image(name_df)
+    
+    if not pontos_restantes_list or not progresso_list:
+        st.warning("⚠️ Não há dados disponíveis para exibir estatísticas.")
+        return
+    
+    # Garantir que os índices não ultrapassem os limites
+    for i, row in image_df.iterrows():
+        if i >= len(pontos_restantes_list) or i >= len(progresso_list):
+            continue  # Pular caso o índice seja inválido
+        
+        st.subheader(f"Imagem: {row['imagem']}")
+        
+        col1_name, col2_name, col3_name = st.columns(3)
+        
+        # Exibir as métricas para cada imagem individualmente
+        col1_name.metric("Pontos Totais da Imagem", f"{row['numero_de_pontos']:.0f}")
+        col2_name.metric("Progresso", f"{progresso_list[i]:.2f}%")
+        col3_name.metric("Pontos Restantes", f"{pontos_restantes_list[i]:.0f}")
+
+# --------------------------
+# Função para Calcular Estatísticas Gerais
 # --------------------------
 
 def calculate_statistics(df):
@@ -100,7 +159,7 @@ def calculate_statistics(df):
     return df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino
 
 # --------------------------
-# Funções de Exibição de Gráficos e Estatísticas
+# Função de Exibição de Gráficos e Estatísticas
 # --------------------------
 
 def display_chart(df, key=None):
@@ -117,60 +176,8 @@ def display_chart(df, key=None):
     # Atribua um `key` único ao gráfico
     st.plotly_chart(fig, use_container_width=True, key=key)
 
-def display_basic_stats_daily(df_daily):
-    """Exibe um resumo estatístico básico dos dados diários, incluindo indicadores de meta."""
-    st.header("📈 Estatísticas Diárias")
-    st.markdown("---")
-    st.write("Aqui estão as estatísticas descritivas dos dados diários:")
-
-    total_registros = len(df_daily)
-    media_pontos = df_daily['total_pontos'].mean()
-    mediana_pontos = df_daily['total_pontos'].median()
-    desvio_padrao = df_daily['total_pontos'].std()
-    max_pontos = df_daily['total_pontos'].max()
-    min_pontos = df_daily['total_pontos'].min()
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📊 Total de Registros Diários", total_registros)
-    col2.metric("📈 Média Diária de Pontos", f"{media_pontos:,.2f}", delta_color="inverse")
-    col3.metric("📉 Desvio Padrão Diário", f"{desvio_padrao:,.2f}")
-
-    st.write(f"**Mediana Diária de Pontos**: {mediana_pontos:,.2f}")
-    st.write(f"**Máximo de Pontos em um Dia**: {max_pontos}")
-    st.write(f"**Mínimo de Pontos em um Dia**: {min_pontos}")
-
-    st.markdown("---")
-
-def display_meta_progress(total_pontos, pontos_restantes, percentual_atingido):
-    """Exibe o progresso da meta de pontos."""
-    st.header("🎯 Progresso da Meta de Pontos")
-    
-    meta = 101457
-
-    col_meta1, col_meta2, col_meta3 = st.columns(3)
-    col_meta1.metric("🎯 Meta de Pontos", f"{meta:,.0f}")
-    col_meta2.metric("📊 Pontos Realizados", f"{total_pontos:,.0f}")
-    col_meta3.metric("📉 Pontos Restantes", f"{pontos_restantes:,.0f}")
-
-    st.subheader(f"🎯 Percentual Atingido: {percentual_atingido:.2f}%")
-
-    if percentual_atingido <= 50:
-        st.progress(percentual_atingido / 100, text="Meta em progresso")
-    elif percentual_atingido <= 100:
-        st.progress(percentual_atingido / 100, text="Quase lá!")
-    else:
-        st.success("🎉 Meta já atingida!")
-
-def display_goal_projection(dias_necessarios, data_projecao_termino):
-    """Calcula e exibe a projeção de quando a meta será atingida."""
-    st.markdown("---")
-    st.header("📅 Projeção de Quando Vai Terminar")
-
-    st.subheader(f"📅 Data Projeção de Término: {data_projecao_termino.strftime('%d/%m/%Y')}")
-    st.write(f"**Dias Restantes**: {dias_necessarios:.0f} dias")
-
 # --------------------------
-# Configuração da Página
+# Dashboard Principal
 # --------------------------
 
 st.set_page_config(
@@ -219,9 +226,9 @@ if not st.session_state['login_status']:
                 st.error("Nome de usuário ou senha incorretos")
 else:
     # --------------------------
-    # Dashboard Principal
+    # Carregar os dados
     # --------------------------
-
+    
     st.image(logo_url, width=150, use_column_width=False)
     
     with st.spinner('Carregando dados...'):
@@ -265,7 +272,7 @@ else:
             
             with col1:
                 display_meta_progress(total_pontos, pontos_restantes, percentual_atingido)
-                display_basic_stats_daily(df_daily)
+                display_basic_stats_daily(df_daily, df_daily['total_pontos'].std())
 
             with col2:
                 display_chart(filtered_df, key="chart_visao_geral")
@@ -279,18 +286,11 @@ else:
                 name_df = filtered_df[filtered_df['nome'] == name]
                 
                 if not name_df.empty:
-                    df_daily_name, total_pontos_name, pontos_restantes_name, percentual_atingido_name, dias_necessarios_name, media_pontos_diaria_name, data_projecao_termino_name = calculate_statistics(name_df)
-                    
-                    col1_name, col2_name = st.columns(2)
+                    # Exibir KPIs por imagem
+                    display_name_statistics(name_df)
 
-                    # Exibir as mesmas métricas de KPIs para cada nome individualmente
-                    col1_name.metric("Pontos Totais", f"{total_pontos_name:,.0f}")
-                    col1_name.metric("Progresso da Meta", f"{percentual_atingido_name:.2f}%")
-                    col1_name.metric("Pontos Restantes", f"{pontos_restantes_name:,.0f}")
-
-                    with col2_name:
-                        display_chart(name_df, key=f"chart_{name}_{idx}")
-                        display_goal_projection(dias_necessarios_name, data_projecao_termino_name)
+                    # Exibir o gráfico para o nome
+                    display_chart(name_df, key=f"chart_{name}_{idx}")
 
                 else:
                     st.warning(f"⚠️ Não foram encontrados dados para {name}.")
