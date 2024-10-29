@@ -6,6 +6,8 @@ import unicodedata
 from datetime import datetime, timedelta
 import numpy as np
 
+from dash import display_meta_progress
+
 # --------------------------
 # Funções Auxiliares
 # --------------------------
