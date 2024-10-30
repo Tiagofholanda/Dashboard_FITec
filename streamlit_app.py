@@ -6,6 +6,8 @@ import unicodedata
 from datetime import datetime, timedelta
 import numpy as np
 
+from dash import display_meta_progress
+
 # --------------------------
 # Funções Auxiliares
 # --------------------------
@@ -57,23 +59,31 @@ def set_text_color():
 
 @st.cache_data
 def get_custom_data():
-    """Carregar dados CSV personalizados a partir do link no GitHub."""
+    """Carregar dados CSV personalizados a partir do link no GitHub ou de um arquivo local."""
     csv_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/data/dados.csv"
+    local_file_path = "data/dados.csv"  # Fallback para arquivo local
+    
     try:
         df = pd.read_csv(csv_url, delimiter=';', on_bad_lines='skip')
-        df = normalize_column_names(df)  # Normalizar os nomes das colunas
-        df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y', errors='coerce')  # Garantir que a coluna 'data' seja datetime
-        df = df.dropna(subset=['data'])  # Remover linhas com datas inválidas
-        return df
-    except FileNotFoundError:
-        st.error("O arquivo CSV não foi encontrado. Verifique o URL.")
-        return pd.DataFrame()
-    except pd.errors.ParserError:
-        st.error("Erro ao analisar o arquivo CSV. Verifique a formatação.")
-        return pd.DataFrame()
     except Exception as e:
-        st.error(f"Ocorreu um erro inesperado: {e}")
-        return pd.DataFrame()
+        st.warning("Erro ao carregar o arquivo online. Tentando carregar o arquivo local.")
+        try:
+            df = pd.read_csv(local_file_path, delimiter=';', on_bad_lines='skip')
+        except FileNotFoundError:
+            st.error("O arquivo CSV não foi encontrado. Verifique o URL ou o arquivo local.")
+            return pd.DataFrame()
+        except pd.errors.ParserError:
+            st.error("Erro ao analisar o arquivo CSV local. Verifique a formatação.")
+            return pd.DataFrame()
+        except Exception as e:
+            st.error(f"Ocorreu um erro inesperado: {e}")
+            return pd.DataFrame()
+
+    # Processamento dos dados
+    df = normalize_column_names(df)  # Normalizar os nomes das colunas
+    df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y', errors='coerce')  # Garantir que a coluna 'data' seja datetime
+    df = df.dropna(subset=['data'])  # Remover linhas com datas inválidas
+    return df
 
 # --------------------------
 # Função para Calcular Pontos Restantes por Imagem
@@ -272,11 +282,11 @@ else:
             
             with col1:
                 display_meta_progress(total_pontos, pontos_restantes, percentual_atingido)
-                display_basic_stats_daily(df_daily, df_daily['total_pontos'].std())
+                display_basic_stats_daily(df_daily, df_daily['total_pontos'].std()) # type: ignore
 
             with col2:
                 display_chart(filtered_df, key="chart_visao_geral")
-                display_goal_projection(dias_necessarios, data_projecao_termino)
+                display_goal_projection(dias_necessarios, data_projecao_termino) # type: ignore
 
         # ---- Aba 2: Estatísticas por Nome ----
         with tab2:
