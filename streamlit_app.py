@@ -53,26 +53,48 @@ def set_text_color():
 
 @st.cache_data
 def get_custom_data():
+    """Carregar dados CSV personalizados a partir do link no GitHub ou de um arquivo local, com fallback de encoding."""
     csv_url = "https://raw.githubusercontent.com/Tiagofholanda/Dashboard_FITec/main/data/dados.csv"
-    local_file_path = "data/dados.csv"
+    local_file_path = "data/dados.csv"  # Fallback para arquivo local
+    
+    # Attempt to load with UTF-8, then fallback to ISO-8859-1 encoding
     try:
         df = pd.read_csv(csv_url, delimiter=';', on_bad_lines='skip')
-    except Exception as e:
+    except UnicodeDecodeError:
+        st.warning("Erro de encoding com UTF-8, tentando ISO-8859-1.")
+        try:
+            df = pd.read_csv(csv_url, delimiter=';', encoding='ISO-8859-1', on_bad_lines='skip')
+        except Exception as e:
+            st.error("Erro ao carregar o arquivo online com ambos os encodings.")
+            return pd.DataFrame()
+    except Exception:
         st.warning("Erro ao carregar o arquivo online. Tentando carregar o arquivo local.")
         try:
             df = pd.read_csv(local_file_path, delimiter=';', on_bad_lines='skip')
-        except FileNotFoundError:
-            st.error("O arquivo CSV não foi encontrado.")
-            return pd.DataFrame()
+        except UnicodeDecodeError:
+            st.warning("Erro de encoding com UTF-8 no arquivo local, tentando ISO-8859-1.")
+            try:
+                df = pd.read_csv(local_file_path, delimiter=';', encoding='ISO-8859-1', on_bad_lines='skip')
+            except FileNotFoundError:
+                st.error("O arquivo CSV não foi encontrado. Verifique o URL ou o arquivo local.")
+                return pd.DataFrame()
+            except pd.errors.ParserError:
+                st.error("Erro ao analisar o arquivo CSV local. Verifique a formatação.")
+                return pd.DataFrame()
+            except Exception as e:
+                st.error(f"Ocorreu um erro inesperado: {e}")
+                return pd.DataFrame()
         except pd.errors.ParserError:
-            st.error("Erro ao analisar o arquivo CSV local.")
+            st.error("Erro ao analisar o arquivo CSV local. Verifique a formatação.")
             return pd.DataFrame()
         except Exception as e:
             st.error(f"Ocorreu um erro inesperado: {e}")
             return pd.DataFrame()
-    df = normalize_column_names(df)
-    df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y', errors='coerce')
-    df = df.dropna(subset=['data'])
+
+    # Processamento dos dados
+    df = normalize_column_names(df)  # Normalizar os nomes das colunas
+    df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y', errors='coerce')  # Garantir que a coluna 'data' seja datetime
+    df = df.dropna(subset=['data'])  # Remover linhas com datas inválidas
     return df
 
 # --------------------------
@@ -80,6 +102,7 @@ def get_custom_data():
 # --------------------------
 
 def calculate_statistics_per_image(name_df):
+    """Calcula os Pontos Restantes por imagem e a porcentagem de progresso para o nome selecionado."""
     image_df = name_df.drop_duplicates(subset=['imagem'])
     if image_df.empty:
         return [], [], image_df
@@ -98,6 +121,7 @@ def calculate_statistics_per_image(name_df):
     return pontos_restantes_list, progresso_list, image_df
 
 def display_name_statistics(name_df):
+    """Exibe KPIs para o nome selecionado, utilizando 'pontos_por_imagem'."""
     pontos_restantes_list, progresso_list, image_df = calculate_statistics_per_image(name_df)
     if not pontos_restantes_list or not progresso_list:
         st.warning("⚠️ Não há dados disponíveis para exibir estatísticas.")
@@ -106,13 +130,15 @@ def display_name_statistics(name_df):
     for i, row in image_df.iterrows():
         if i >= len(pontos_restantes_list) or i >= len(progresso_list):
             continue
-        st.subheader(f"Imagem: {row['imagem']}")
+        
+        # Display metrics without showing the image name
         col1_name, col2_name, col3_name = st.columns(3)
         col1_name.metric("Pontos Totais da Imagem", f"{row['numero_de_pontos']:.0f}")
         col2_name.metric("Progresso", f"{progresso_list[i]:.2f}%")
         col3_name.metric("Pontos Restantes", f"{pontos_restantes_list[i]:.0f}")
 
 def calculate_statistics(df):
+    """Calcula estatísticas gerais, diárias e projeção de meta, incluindo a extensão total em km."""
     df_daily = df.groupby(df['data'].dt.date)['numero_de_pontos'].sum().reset_index()
     df_daily.columns = ['data', 'total_pontos']
     meta = 101457
@@ -123,28 +149,41 @@ def calculate_statistics(df):
     media_pontos_diaria = total_pontos / dias_totais if dias_totais > 0 else 0
     dias_necessarios = pontos_restantes / media_pontos_diaria if media_pontos_diaria > 0 else float('inf')
     data_projecao_termino = datetime.today() + timedelta(days=int(dias_necessarios))
-    return df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino
+    
+    # Calculate total line extension in kilometers using 'extensao' column
+    if 'extensao' in df.columns:
+        total_line_extension_meters = df['extensao'].sum()  # Assuming the column is in meters
+        total_line_extension_km = total_line_extension_meters / 1000  # Convert to kilometers
+    else:
+        total_line_extension_km = 0
+        st.warning("A coluna 'extensao' não foi encontrada no arquivo CSV.")
+    
+    return df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino, total_line_extension_km
 
 # --------------------------
 # Funções de Exibição de KPIs e Gráficos
 # --------------------------
 
 def display_meta_progress(total_pontos, pontos_restantes, percentual_atingido):
+    """Exibe métricas de progresso da meta."""
     st.metric("Pontos Realizados", total_pontos)
     st.metric("Progresso da Meta", f"{percentual_atingido:.2f}%")
     st.metric("Pontos Restantes", pontos_restantes)
 
 def display_basic_stats_daily(df_daily, std_dev):
+    """Exibe estatísticas diárias básicas com desvio padrão."""
     st.subheader("📅 Estatísticas Diárias")
     st.write(f"Desvio Padrão dos Pontos Diários: {std_dev:.2f}")
     st.line_chart(df_daily.set_index('data')['total_pontos'])
 
 def display_goal_projection(dias_necessarios, data_projecao_termino):
+    """Exibe projeção de conclusão da meta."""
     st.subheader("📅 Projeção de Conclusão")
     st.write(f"Dias Necessários para Conclusão: {dias_necessarios:.0f}")
     st.write(f"Data Estimada de Conclusão: {data_projecao_termino.strftime('%d/%m/%Y')}")
 
 def display_chart(df, key=None):
+    """Exibe gráfico interativo do número de pontos ao longo do tempo, suavizado com uma média móvel de 7 dias."""
     st.header('📊 Evolução do Número de Pontos ao Longo do Tempo (Suavizado)')
     st.markdown("---")
     df['numero_de_pontos_smooth'] = df['numero_de_pontos'].rolling(window=7, min_periods=1).mean()
@@ -204,12 +243,17 @@ else:
         if selected_names:
             filtered_df = filtered_df[filtered_df['nome'].isin(selected_names)]
 
-        df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino = calculate_statistics(filtered_df)
-        col1, col2, col3 = st.columns(3)
+        # Calculate statistics, including total line extension in km
+        df_daily, total_pontos, pontos_restantes, percentual_atingido, dias_necessarios, media_pontos_diaria, data_projecao_termino, total_line_extension_km = calculate_statistics(filtered_df)
+        
+        # KPIs at the top
+        col1, col2, col3, col4 = st.columns(4)
         col1.metric("Pontos Realizados", total_pontos)
         col2.metric("Progresso da Meta", f"{percentual_atingido:.2f}%")
         col3.metric("Pontos Restantes", pontos_restantes)
+        col4.metric("Extensão Total (km)", f"{total_line_extension_km:.2f}")
 
+        # Tabs for Overview and Name-specific Statistics
         tab1, tab2 = st.tabs(["📊 Visão Geral", "📋 Estatísticas por Nome"])
 
         with tab1:
@@ -231,6 +275,7 @@ else:
                 else:
                     st.warning(f"⚠️ Não foram encontrados dados para {name}.")
 
+        # Footer with professional links
         st.markdown("---")
         st.markdown(
             """
