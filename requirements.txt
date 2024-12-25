@@ -6,3 +6,5 @@ streamlit-authenticator
 prophet
 holidays
 scikit-learn
+chardet
+
